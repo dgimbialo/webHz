@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- ── Security ─────────────────────────────────────────────────────── -->
+    <!-- Note: X-Frame-Options and frame-ancestors work only as HTTP headers.  -->
+    <!-- For GitHub Pages add them via _headers file. For other hosts — server config. -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src  'self' https://cdn.jsdelivr.net;
+        style-src   'self' https://fonts.googleapis.com 'unsafe-inline';
+        font-src    https://fonts.gstatic.com;
+        connect-src 'self' https://qsxwnwxdkgeijewgvone.supabase.co;
+        img-src     'self' data:;
+    ">
+
+    <!-- ── PWA / SEO ─────────────────────────────────────────────────────── -->
+    <title>Power Grid Frequency Monitor</title>
+    <meta name="description" content="Real-time power grid frequency monitoring dashboard.">
+    <meta name="theme-color" content="#00f7ff">
+    <link rel="manifest" href="site.webmanifest">
+
+    <!-- ── Styles ────────────────────────────────────────────────────────── -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- ── Libraries ─────────────────────────────────────────────────────── -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js" defer></script>
+
+    <!-- ── App scripts (load order matters) ──────────────────────────────── -->
+    <script src="assets/js/config.js" defer></script>
+    <script src="assets/js/i18n.js"   defer></script>
+    <script src="assets/js/api.js"    defer></script>
+    <script src="assets/js/app.js"    defer></script>
+</head>
+<body>
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
+<header>
+    <div class="brand">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="brand-text">Frequency Monitor</span>
+    </div>
+    <div class="lang-toggle" role="group" aria-label="Language">
+        <button data-lang="en" class="active" aria-pressed="true">EN</button>
+        <button data-lang="ua" aria-pressed="false">UA</button>
+    </div>
+</header>
+
+<!-- ── Main content ──────────────────────────────────────────────────────── -->
+<main>
+    <div class="page-header">
+        <h1 class="page-title" id="page-title">Power Grid Frequency</h1>
+        <span class="badge" id="last-updated" aria-live="polite">Updated: --</span>
+    </div>
+
+    <!-- Stats -->
+    <section class="stats" aria-label="Statistics">
+        <div class="stat-card">
+            <div class="label" id="lbl-current">Current</div>
+            <div class="value"><span id="val-current" aria-live="polite">--</span> <small>Hz</small></div>
+        </div>
+        <div class="stat-card">
+            <div class="label" id="lbl-min-window">Min in window</div>
+            <div class="value"><span id="val-min-window">--</span> <small>Hz</small></div>
+        </div>
+        <div class="stat-card alt">
+            <div class="label" id="lbl-max-window">Max in window</div>
+            <div class="value"><span id="val-max-window">--</span> <small>Hz</small></div>
+        </div>
+        <div class="stat-card">
+            <div class="label" id="lbl-points">Points</div>
+            <div class="value"><span id="val-points">--</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="label" id="lbl-data-age">Data Age</div>
+            <div class="value"><span id="val-data-age">--</span> <small>min</small></div>
+        </div>
+    </section>
+
+    <!-- Toolbar -->
+    <section class="toolbar" aria-label="Chart controls">
+        <div class="toolbar-group range-buttons" id="range-buttons">
+            <span class="label" id="lbl-range">Range</span>
+            <button data-minutes="1">1 min</button>
+            <button data-minutes="2">2 min</button>
+            <button data-minutes="10">10 min</button>
+            <button data-minutes="60">1 h</button>
+            <button data-minutes="180">3 h</button>
+            <button data-minutes="720">12 h</button>
+            <button data-minutes="1440">24 h</button>
+            <button data-minutes="2880">48 h</button>
+        </div>
+        <div class="toolbar-group">
+            <button class="secondary-btn" id="reset-btn">Reset Axes Zoom</button>
+            <button class="secondary-btn" id="save-btn">Save as .csv</button>
+        </div>
+    </section>
+
+    <!-- Chart -->
+    <section class="chart-wrapper" aria-label="Frequency chart">
+        <canvas id="frequencyChart" role="img" aria-label="Power grid frequency over time"></canvas>
+
+        <!-- Y-axis overlay controls -->
+        <div class="chart-axis-y" aria-label="Y axis zoom">
+            <button class="axis-zoom-btn" data-zoom="y-in"  title="Zoom in Hz">+</button>
+            <span   class="axis-label"   id="lbl-axis-freq">Hz</span>
+            <button class="axis-zoom-btn" data-zoom="y-out" title="Zoom out Hz">−</button>
+        </div>
+
+        <!-- X-axis overlay controls -->
+        <div class="chart-axis-x" aria-label="X axis zoom">
+            <button class="axis-zoom-btn" data-zoom="x-out" title="Zoom out time">−</button>
+            <span   class="axis-label"   id="lbl-axis-time">Time</span>
+            <button class="axis-zoom-btn" data-zoom="x-in"  title="Zoom in time">+</button>
+        </div>
+
+        <p class="hint" id="hint-text">Mouse wheel zooms · drag to pan · ± buttons adjust axes</p>
+    </section>
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer class="app-footer">
+    <div class="footer-content">
+        <p><strong>Designed by dgimbialo &copy; 2026</strong></p>
+        <p>Power Grid Frequency Monitor &nbsp;·&nbsp;
+           Real-time data via <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>

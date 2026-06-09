@@ -1,0 +1,11 @@
+{
+  "name": "Power Grid Frequency Monitor",
+  "short_name": "FreqMonitor",
+  "description": "Real-time power grid frequency monitoring dashboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0420",
+  "theme_color": "#00f7ff",
+  "lang": "en",
+  "icons": []
+}
