@@ -319,6 +319,27 @@ function updateViewport() {
     };
 }
 
+function getVisibleRange() {
+    if (state.xRange) return state.xRange;
+
+    const LIVE_THRESHOLD_MS = 30000;
+    const isLive = state.lastFetchedMs &&
+                   (Date.now() - state.lastFetchedMs) < LIVE_THRESHOLD_MS;
+    const anchor = isLive
+        ? Date.now()
+        : (state.lastFetchedMs ? state.lastFetchedMs + 15000 : Date.now());
+
+    return {
+        min: anchor - state.rangeMinutes * 60000,
+        max: anchor,
+    };
+}
+
+function getVisiblePoints() {
+    const r = getVisibleRange();
+    return state.allData.filter(p => p.y !== null && p.x >= r.min && p.x <= r.max);
+}
+
 function autoScaleY() {
     const r = state.xRange;
     const pts = r
@@ -368,10 +389,7 @@ function positionAxisControls() {
 function updateStats() {
     const allValid = state.allData.filter(p => p.y !== null);
     const cur      = allValid.length ? allValid[allValid.length - 1].y : null;
-    const r        = state.xRange;
-    const visible  = r
-        ? state.allData.filter(p => p.y !== null && p.x >= r.min && p.x <= r.max)
-        : allValid;
+    const visible  = getVisiblePoints();
     const ys = visible.map(p => p.y);
 
     document.getElementById('val-current').textContent    = cur !== null ? cur.toFixed(3) : '--';
@@ -533,8 +551,7 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 
 // Save CSV
 document.getElementById('save-btn').addEventListener('click', () => {
-    const rows = state.allData
-        .filter(p => p.y !== null)
+    const rows = getVisiblePoints()
         .map(p => `${new Date(p.x).toISOString()},${p.y}`);
     const blob = new Blob(['timestamp,frequency\n' + rows.join('\n')], { type: 'text/csv' });
     const a    = Object.assign(document.createElement('a'), {
