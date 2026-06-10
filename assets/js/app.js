@@ -384,15 +384,33 @@ function updateStats() {
 }
 
 function updateDataAge() {
-    const card = document.getElementById('card-data-age');
+    const card    = document.getElementById('card-data-age');
+    const numEl   = document.getElementById('val-data-age');
+    const unitEl  = document.getElementById('val-data-age-min');
+    const t       = i18n[state.lang];
+
     if (!state.lastFetchedMs) {
-        document.getElementById('val-data-age').textContent = '--';
+        numEl.textContent  = '--';
+        unitEl.textContent = '';
         card.classList.remove('old');
         return;
     }
-    const ageMins = (Date.now() - state.lastFetchedMs) / 60000;
-    document.getElementById('val-data-age').textContent = ageMins.toFixed(1);
-    card.classList.toggle('old', ageMins > 2);
+
+    const totalSecs = Math.floor((Date.now() - state.lastFetchedMs) / 1000);
+    const mins      = Math.floor(totalSecs / 60);
+    const secs      = totalSecs % 60;
+
+    if (mins < 1) {
+        // Under 1 minute — show seconds only: "42 s" / "42 с."
+        numEl.textContent  = totalSecs;
+        unitEl.textContent = ' ' + t.dataAgeSec;
+    } else {
+        // 1 minute and over — show mm:ss + unit: "9:24 min" / "9:24 хв."
+        numEl.textContent  = mins + ':' + String(secs).padStart(2, '0');
+        unitEl.textContent = ' ' + t.dataAgeUnit;
+    }
+
+    card.classList.toggle('old', totalSecs > 120); // > 2 minutes
 }
 
 function updateLastUpdated() {

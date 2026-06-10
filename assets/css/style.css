@@ -328,6 +328,14 @@ main {
     text-decoration: underline;
 }
 
+/* ── Data Age small labels (unit + badge) — use Inter for Cyrillic support ── */
+#val-data-age-min,
+.old-data-badge {
+    font-family: 'Orbitron', 'Inter', 'Segoe UI', sans-serif;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
 /* ── Old Data badge ────────────────────────────────────────────────────── */
 .old-data-badge {
     display: none;
