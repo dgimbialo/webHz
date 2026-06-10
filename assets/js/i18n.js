@@ -15,8 +15,13 @@ const i18n = {
         tooltip:    'Frequency',
         updated:    'Updated',
         unit:       'Hz',
-        resetZoom:  'Auto',
+        oldData:    'Old',
+        resetZoom:  'Auto Scroll',
         saveCsv:    'Save as .csv',
+        rangeLabels: {
+            1: '1 min', 2: '2 min', 10: '10 min',
+            60: '1 h', 180: '3 h', 720: '12 h', 1440: '24 h', 2880: '48 h',
+        },
     },
     ua: {
         brand:      'Монітор частоти',
@@ -33,7 +38,12 @@ const i18n = {
         tooltip:    'Частота',
         updated:    'Оновлено',
         unit:       'Гц',
-        resetZoom:  'Авто',
+        oldData:    'Старі',
+        resetZoom:  'Авто Скрол',
         saveCsv:    'Зберегти .csv',
+        rangeLabels: {
+            1: '1 хв.', 2: '2 хв.', 10: '10 хв.',
+            60: '1 год.', 180: '3 год.', 720: '12 год.', 1440: '24 год.', 2880: '48 год.',
+        },
     },
 };

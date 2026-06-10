@@ -4,7 +4,7 @@
 const LIVE_POLL_MS          = 2000;          // poll Supabase every 2 s
 const DRIP_MS               = 1000;          // release 1 queued point per second
 const DATA_WINDOW_MS        = 25 * 3600000;  // 25 h in-memory buffer
-const INITIAL_RANGE_MINUTES = 1440;          // show last 24 h on startup
+const INITIAL_RANGE_MINUTES = 2;             // show last 2 min on startup
 const Y_DEFAULT             = { min: 49.5, max: 50.5 };
 
 // ── App State ──────────────────────────────────────────────────────────────
@@ -460,12 +460,18 @@ function applyLang(lang) {
         ['lbl-data-age',  t.dataAge],
         ['lbl-range',     t.range],
         ['lbl-axis-time', t.axisTime],
-        ['lbl-axis-freq', t.axisFreq],
-        ['reset-btn',     t.resetZoom],
-        ['save-btn',      t.saveCsv],
+        ['lbl-axis-freq',    t.axisFreq],
+        ['reset-btn',        t.resetZoom],
+        ['save-btn',         t.saveCsv],
+        ['val-data-age-old', t.oldData],
     ].forEach(([id, val]) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
+    });
+    // Range buttons
+    document.querySelectorAll('#range-buttons button[data-minutes]').forEach(btn => {
+        const label = t.rangeLabels[Number(btn.dataset.minutes)];
+        if (label) btn.textContent = label;
     });
     chart.data.datasets[0].label = t.dataset;
     document.querySelectorAll('.lang-toggle button').forEach(b =>
@@ -526,6 +532,7 @@ document.querySelectorAll('.lang-toggle button').forEach(btn =>
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 (async function boot() {
+    applyLang(state.lang);
     updateRangeButtons(state.rangeMinutes);
     await fetchInitialData();
     state.liveTimer = setInterval(fetchNewPoints, LIVE_POLL_MS);
