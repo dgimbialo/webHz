@@ -54,22 +54,22 @@ Hosted for free on **GitHub Pages** as a pure static site.
 
 ```
 ┌──────────────────────┐        HTTPS / REST         ┌─────────────────────┐
-│   ESP32 (firmware)   │  ──── INSERT every 5 s ────► │  Supabase (cloud)   │
-│  Zero-crossing meter │                              │  PostgreSQL + RLS   │
-│  NTP timestamps      │                              │  table: frequency_  │
-│  service_role key    │                              │         log         │
-└──────────────────────┘                              └─────────┬───────────┘
-                                                                │
+│   ESP32 (firmware)   │  ──── INSERT every 5 s ───► │  Supabase (cloud)   │
+│  Zero-crossing meter │                             │  PostgreSQL + RLS   │
+│  NTP timestamps      │                             │  table: frequency_  │
+│  service_role key    │                             │         log         │
+└──────────────────────┘                             └─────────┬───────────┘
+
                                                     GET /rest/v1/frequency_log
                                                       anon (publishable) key
                                                                 │
                                                       ┌─────────▼───────────┐
-                                                      │   GitHub Pages       │
-                                                      │   (static site)      │
-                                                      │   index.html         │
-                                                      │   assets/js/*.js     │
-                                                      │   Chart.js           │
-                                                      └──────────────────────┘
+                                                      │   GitHub Pages      │
+                                                      │   (static site)     │
+                                                      │   index.html        │
+                                                      │   assets/js/*.js    │
+                                                      │   Chart.js          │
+                                                      └─────────────────────┘
 ```
 
 **Key security rule:**  
@@ -142,17 +142,6 @@ webHz.github.io/
 ---
 
 ## 📊 Chart Features
-
-```
-┌─────────────────────────────────────────────────────┐
-│  +  │                                               │
-│ Hz  │  ~~~~ 50.02 ~~~~ 49.98 ~~~~  50.01 ~~         │
-│  −  │  - - - - - - 50.000 Hz - - - - - - - - -      │  ← green nominal line
-│     │                         gap ↑ null-injected   │
-│     └─────────────────────────────────────────┐     │
-│           − │       Time       │ +             │     │
-└─────────────────────────────────────────────────────┘
-```
 
 - **Null injection** for gaps > 12 s → visible breaks instead of connecting lines  
 - **Nominal line** custom `afterDraw` plugin — always includes 50 Hz in Y viewport  
