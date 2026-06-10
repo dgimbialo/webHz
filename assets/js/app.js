@@ -334,32 +334,32 @@ function autoScaleY() {
 }
 
 function positionAxisControls() {
-    if (!chart.scales || !chart.scales.y || !chart.scales.x) return;
-    const ys  = chart.scales.y, xs = chart.scales.x;
-    const dpr = chart.currentDevicePixelRatio || window.devicePixelRatio || 1;
-    const cr  = chartCanvas.getBoundingClientRect();
-    const wr  = chartCanvas.parentElement.getBoundingClientRect();
-    const cL  = cr.left - wr.left, cT = cr.top - wr.top;
+    // chart.chartArea and scale .left/.right/.top/.bottom are all in CSS pixels —
+    // NO devicePixelRatio division is needed here.
+    if (!chart.chartArea || !chart.scales.y || !chart.scales.x) return;
 
-    // ── Y buttons: centred in the LEFT PADDING area (left of Y-axis labels) ──
-    // layout.padding.left reserves space from canvas-x=0 to ys.left.
-    // ys.left is the canvas-pixel x where the Y scale begins.
-    const yEl = chartCanvas.parentElement.querySelector('.chart-axis-y');
+    const ca = chart.chartArea;          // CSS px: {left, top, right, bottom} of plot area
+    const xs = chart.scales.x;          // CSS px axis bounds
+    const cr = chartCanvas.getBoundingClientRect();
+    const wr = chartCanvas.parentElement.getBoundingClientRect();
+    const cL = cr.left - wr.left;       // canvas left offset inside wrapper (CSS px)
+    const cT = cr.top  - wr.top;        // canvas top  offset inside wrapper (CSS px)
+
+    // ── Y buttons: centred in layout.padding.left strip, mid-height of plot ──
+    const padL = (chart.options.layout.padding || {}).left || 0;
+    const yEl  = chartCanvas.parentElement.querySelector('.chart-axis-y');
     if (yEl) {
-        yEl.style.left      = Math.round(cL + ys.left / (2 * dpr) - 5) + 'px';
-        yEl.style.top       = Math.round(cT + (ys.top + ys.bottom) / (2 * dpr)) + 'px';
+        yEl.style.left      = Math.round(cL + padL / 2 - 5) + 'px';
+        yEl.style.top       = Math.round(cT + (ca.top + ca.bottom) / 2) + 'px';
         yEl.style.transform = 'translate(-50%, -50%)';
     }
 
-    // ── X buttons: centred in the BOTTOM PADDING area (below X-axis labels) ──
-    // xs.bottom is where X labels end; canvas height - xs.bottom = bottom padding.
-    // Place buttons in the vertical centre of that padding strip.
+    // ── X buttons: centred horizontally in plot, mid of bottom padding strip ─
+    // xs.bottom = CSS px bottom of X-axis tick labels; cr.height = CSS canvas height.
     const xEl = chartCanvas.parentElement.querySelector('.chart-axis-x');
     if (xEl) {
-        const canvasHpx     = cr.height;                      // CSS px height of canvas
-        const xBottomCssPx  = xs.bottom / dpr;                // CSS px: bottom of X labels
-        xEl.style.left      = Math.round(cL + (xs.left + xs.right) / (2 * dpr)) + 'px';
-        xEl.style.top       = Math.round(cT + (xBottomCssPx + canvasHpx) / 2 + 5) + 'px';
+        xEl.style.left      = Math.round(cL + (ca.left + ca.right) / 2) + 'px';
+        xEl.style.top       = Math.round(cT + (xs.bottom + cr.height) / 2 + 5) + 'px';
         xEl.style.transform = 'translate(-50%, -50%)';
     }
 }

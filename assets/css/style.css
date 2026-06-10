@@ -372,9 +372,26 @@ main {
     .chart-wrapper          { padding: 10px; }
     .chart-wrapper canvas   { height: 260px !important; }
 
-    /* Axis overlay buttons — smaller on mobile, still visible */
-    .axis-zoom-btn          { width: 26px; padding: 4px 0; font-size: 0.78em; }
+    /* Axis overlay buttons — smaller on mobile */
+    .axis-zoom-btn          { font-size: 0.78em; }
     .axis-label             { font-size: 0.72em; min-width: 26px; }
+    .chart-axis-x .axis-zoom-btn { width: 60px; height: 24px; }
+    .chart-axis-y .axis-zoom-btn { width: 22px; height: 60px; }
+
+    /* Override JS-calculated inline positions for axis controls on mobile.
+       JS uses canvas pixel coords which break with varying devicePixelRatio —
+       use simple fixed CSS positions instead. */
+    .chart-axis-y {
+        left:      6px       !important;   /* flush to the left padding strip */
+        top:       50%       !important;
+        transform: translateY(-50%) !important;
+    }
+    .chart-axis-x {
+        left:      50%       !important;   /* centred horizontally */
+        top:       auto      !important;
+        bottom:    8px       !important;   /* sit in the bottom padding area */
+        transform: translateX(-50%) !important;
+    }
 
     /* Footer */
     .app-footer             { padding: 16px 12px; }
