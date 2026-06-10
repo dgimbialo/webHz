@@ -340,6 +340,20 @@ function getVisiblePoints() {
     return state.allData.filter(p => p.y !== null && p.x >= r.min && p.x <= r.max);
 }
 
+function formatLocalCsvTimestamp(ms) {
+    return new Date(ms).toLocaleString('sv-SE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    })
+        .replace(' ', 'T')
+        .replace(/,/g, '');
+}
+
 function autoScaleY() {
     const r = state.xRange;
     const pts = r
@@ -552,11 +566,12 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 // Save CSV
 document.getElementById('save-btn').addEventListener('click', () => {
     const rows = getVisiblePoints()
-        .map(p => `${new Date(p.x).toISOString()},${p.y}`);
+        .map(p => `${formatLocalCsvTimestamp(p.x)},${p.y}`);
     const blob = new Blob(['timestamp,frequency\n' + rows.join('\n')], { type: 'text/csv' });
+    const fileStamp = formatLocalCsvTimestamp(Date.now()).replace(/[:T]/g, '-');
     const a    = Object.assign(document.createElement('a'), {
         href:     URL.createObjectURL(blob),
-        download: `frequency_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`,
+        download: `frequency_${fileStamp}.csv`,
     });
     a.click();
 });
