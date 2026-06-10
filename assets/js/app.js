@@ -85,10 +85,14 @@ function insertGapNulls(data, maxGapMs = 12000) {
 }
 
 // ── Data fetch ─────────────────────────────────────────────────────────────
+
+// Load the most recent N points so the chart renders fully on first open.
+// Uses DESC order + reverse so we always get the freshest data regardless
+// of total row count in the table.
 async function fetchInitialData() {
-    const since = new Date(Date.now() - 24 * 3600000).toISOString();
     try {
-        const rows = await sbFetchRange(since);
+        const rows = await sbFetchRecent(20000);          // newest 20 000 pts
+        rows.reverse();                                    // oldest-first for chart
         state.allData = rows.map(rowToPoint);
         if (rows.length > 0) {
             state.lastFetched   = rows[rows.length - 1].timestamp;
@@ -105,9 +109,19 @@ async function fetchNewPoints() {
     try {
         const rows = await sbFetchNew(state.lastFetched);
         if (rows.length > 0) {
+            const pts = rows.map(rowToPoint);
             state.lastFetched   = rows[rows.length - 1].timestamp;
             state.lastFetchedMs = new Date(state.lastFetched).getTime();
-            enqueueDrip(rows.map(rowToPoint));
+
+            // If data is old (> 15 s behind) or large batch → add instantly,
+            // otherwise drip one point per second for smooth live animation.
+            const dataAge = Date.now() - state.lastFetchedMs;
+            if (dataAge > 15000 || pts.length > DRIP_CATCHUP_THRESHOLD) {
+                flushToAllData(pts);
+                updateChart({ scaleY: !state.userPanned });
+            } else {
+                enqueueDrip(pts);
+            }
         }
     } catch (err) {
         console.error('Poll failed:', err);
@@ -161,7 +175,7 @@ const chart = new Chart(chartCanvas.getContext('2d'), {
         maintainAspectRatio: false,
         animation: false,
         interaction: { mode: 'nearest', intersect: false, axis: 'x' },
-        layout: { padding: { left: 70, right: 10, top: 6, bottom: 40 } },
+        layout: { padding: { left: 38, right: 10, top: 6, bottom: 52 } },
         scales: {
             x: {
                 type: 'time',
@@ -289,8 +303,20 @@ function applyAxisRanges() {
 
 function updateViewport() {
     if (state.userPanned) return;
-    const now    = Date.now();
-    state.xRange = { min: now - state.rangeMinutes * 60000, max: now };
+
+    // Anchor to last data point when data is old (> 30 s behind current time).
+    // Anchor to current time when data is live so the chart scrolls forward.
+    const LIVE_THRESHOLD_MS = 30000;
+    const isLive = state.lastFetchedMs &&
+                   (Date.now() - state.lastFetchedMs) < LIVE_THRESHOLD_MS;
+    const anchor = isLive
+        ? Date.now()
+        : (state.lastFetchedMs ? state.lastFetchedMs + 15000 : Date.now());
+
+    state.xRange = {
+        min: anchor - state.rangeMinutes * 60000,
+        max: anchor,
+    };
 }
 
 function autoScaleY() {
@@ -308,24 +334,33 @@ function autoScaleY() {
 }
 
 function positionAxisControls() {
-    if (!chart.scales || !chart.scales.y) return;
+    if (!chart.scales || !chart.scales.y || !chart.scales.x) return;
     const ys  = chart.scales.y, xs = chart.scales.x;
     const dpr = chart.currentDevicePixelRatio || window.devicePixelRatio || 1;
     const cr  = chartCanvas.getBoundingClientRect();
     const wr  = chartCanvas.parentElement.getBoundingClientRect();
     const cL  = cr.left - wr.left, cT = cr.top - wr.top;
 
+    // ── Y buttons: centred in the LEFT PADDING area (left of Y-axis labels) ──
+    // layout.padding.left reserves space from canvas-x=0 to ys.left.
+    // ys.left is the canvas-pixel x where the Y scale begins.
     const yEl = chartCanvas.parentElement.querySelector('.chart-axis-y');
     if (yEl) {
-        yEl.style.left      = Math.round(cL + (ys.left / dpr) / 2) + 'px';
+        yEl.style.left      = Math.round(cL + ys.left / (2 * dpr) - 5) + 'px';
         yEl.style.top       = Math.round(cT + (ys.top + ys.bottom) / (2 * dpr)) + 'px';
         yEl.style.transform = 'translate(-50%, -50%)';
     }
+
+    // ── X buttons: centred in the BOTTOM PADDING area (below X-axis labels) ──
+    // xs.bottom is where X labels end; canvas height - xs.bottom = bottom padding.
+    // Place buttons in the vertical centre of that padding strip.
     const xEl = chartCanvas.parentElement.querySelector('.chart-axis-x');
     if (xEl) {
+        const canvasHpx     = cr.height;                      // CSS px height of canvas
+        const xBottomCssPx  = xs.bottom / dpr;                // CSS px: bottom of X labels
         xEl.style.left      = Math.round(cL + (xs.left + xs.right) / (2 * dpr)) + 'px';
-        xEl.style.top       = Math.round(cT + xs.top + 35) + 'px';
-        xEl.style.transform = 'translate(-50%, -100%)';
+        xEl.style.top       = Math.round(cT + (xBottomCssPx + canvasHpx) / 2 + 5) + 'px';
+        xEl.style.transform = 'translate(-50%, -50%)';
     }
 }
 
@@ -344,29 +379,20 @@ function updateStats() {
     document.getElementById('val-max-window').textContent = ys.length ? Math.max(...ys).toFixed(3) : '--';
     document.getElementById('val-points').textContent     = visible.length;
 
-    // Auto-select the closest Range button to the visible span
-    if (visible.length >= 2) {
-        const spanMin = (Math.max(...visible.map(p => p.x)) - Math.min(...visible.map(p => p.x))) / 60000;
-        const opts    = [1, 2, 10, 60, 180, 720, 1440, 2880];
-        let best = null, bestDiff = Infinity;
-        for (const m of opts) {
-            const d = Math.abs(m - spanMin);
-            if (d < bestDiff) { bestDiff = d; best = m; }
-        }
-        if (best !== null && bestDiff <= best * 0.3) {
-            state.rangeMinutes = best;
-            updateRangeButtons(best);
-        }
-    }
+    // Keep range button highlight in sync with user's choice — never auto-change it
+    updateRangeButtons(state.rangeMinutes);
 }
 
 function updateDataAge() {
+    const card = document.getElementById('card-data-age');
     if (!state.lastFetchedMs) {
         document.getElementById('val-data-age').textContent = '--';
+        card.classList.remove('old');
         return;
     }
     const ageMins = (Date.now() - state.lastFetchedMs) / 60000;
     document.getElementById('val-data-age').textContent = ageMins.toFixed(1);
+    card.classList.toggle('old', ageMins > 2);
 }
 
 function updateLastUpdated() {
@@ -435,7 +461,6 @@ function applyLang(lang) {
         ['lbl-range',     t.range],
         ['lbl-axis-time', t.axisTime],
         ['lbl-axis-freq', t.axisFreq],
-        ['hint-text',     t.hint],
         ['reset-btn',     t.resetZoom],
         ['save-btn',      t.saveCsv],
     ].forEach(([id, val]) => {

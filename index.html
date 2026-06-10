@@ -80,9 +80,13 @@
             <div class="label" id="lbl-points">Points</div>
             <div class="value"><span id="val-points">--</span></div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" id="card-data-age">
             <div class="label" id="lbl-data-age">Data Age</div>
-            <div class="value"><span id="val-data-age">--</span> <small>min</small></div>
+            <div class="value">
+                <span id="val-data-age">--</span>
+                <small id="val-data-age-min"> min</small>
+                <small id="val-data-age-old" class="old-data-badge"> Old</small>
+            </div>
         </div>
     </section>
 
@@ -100,7 +104,7 @@
             <button data-minutes="2880">48 h</button>
         </div>
         <div class="toolbar-group">
-            <button class="secondary-btn" id="reset-btn">Reset Axes Zoom</button>
+            <button class="secondary-btn" id="reset-btn">Auto</button>
             <button class="secondary-btn" id="save-btn">Save as .csv</button>
         </div>
     </section>
@@ -123,7 +127,6 @@
             <button class="axis-zoom-btn" data-zoom="x-in"  title="Zoom in time">+</button>
         </div>
 
-        <p class="hint" id="hint-text">Mouse wheel zooms · drag to pan · ± buttons adjust axes</p>
     </section>
 </main>
 

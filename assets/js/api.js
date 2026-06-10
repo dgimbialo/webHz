@@ -27,6 +27,21 @@ async function sbFetchRange(since, limit = 10000) {
 }
 
 /**
+ * Fetch the most recent N rows (newest first — caller must reverse).
+ * @param {number} limit  max rows (default 20 000)
+ * @returns {Promise<Array>}  rows ordered newest→oldest
+ */
+async function sbFetchRecent(limit = 20000) {
+    const url =
+        `${SUPABASE_URL}/rest/v1/frequency_log` +
+        `?order=timestamp.desc&limit=${limit}`;
+
+    const resp = await fetch(url, { headers: sbHeaders() });
+    if (!resp.ok) throw new Error(`Supabase ${resp.status}: ${await resp.text()}`);
+    return resp.json();
+}
+
+/**
  * Fetch rows newer than a given timestamp (exclusive).
  * @param {string} after  ISO-8601 timestamp (exclusive lower bound)
  * @param {number} limit  max rows (default 500)

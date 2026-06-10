@@ -15,8 +15,7 @@ const i18n = {
         tooltip:    'Frequency',
         updated:    'Updated',
         unit:       'Hz',
-        hint:       'Mouse wheel zooms · drag to pan · ± buttons adjust axes',
-        resetZoom:  'Reset Axes Zoom',
+        resetZoom:  'Auto',
         saveCsv:    'Save as .csv',
     },
     ua: {
@@ -34,8 +33,7 @@ const i18n = {
         tooltip:    'Частота',
         updated:    'Оновлено',
         unit:       'Гц',
-        hint:       'Колесо миші — масштаб · перетягніть — панорама · ± змінюють осі',
-        resetZoom:  'Скинути масштаб',
+        resetZoom:  'Авто',
         saveCsv:    'Зберегти .csv',
     },
 };
