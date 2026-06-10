@@ -23,6 +23,20 @@
 
 ---
 
+## 🔗 Related Project
+
+<p align="center">
+  <a href="https://github.com/dgimbialo/CrossZeroDetector">
+    <img src="foto/Foto_RelatedProject.JPG" alt="FrequencyCounter ESP32 — firmware" width="100%">
+  </a>
+</p>
+
+| Repo | Description |
+|---|---|
+| [FrequencyCounter ESP32](https://github.com/dgimbialo/CrossZeroDetector) | ESP32 firmware — zero-crossing meter that writes data to the same Supabase table |
+
+---
+
 ## 📖 About
 
 A fully **serverless** real-time monitoring dashboard that visualises Ukrainian power grid frequency (nominal **50 Hz**). An ESP32 microcontroller measures zero-crossing frequency every second, sends measurements directly to **Supabase** over Wi-Fi, and the browser reads from Supabase via the REST API — **no Flask, no server, no backend code**.
