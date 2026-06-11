@@ -354,6 +354,79 @@ main {
     display: inline;
 }
 
+/* ── Backfill loading overlay ───────────────────────────────────────────── */
+.backfill-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 4, 32, 0.72);
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    border-radius: 18px;
+    backdrop-filter: blur(3px);
+}
+
+.backfill-overlay:not([hidden]) {
+    display: flex;
+}
+
+.backfill-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.spinner-svg {
+    width: 84px;
+    height: 84px;
+    transform: rotate(-90deg);
+    overflow: visible;
+}
+
+.spinner-track {
+    fill: none;
+    stroke: rgba(0, 247, 255, 0.12);
+    stroke-width: 4;
+}
+
+/* r=22 → circumference = 2π×22 ≈ 138.23 */
+.spinner-arc {
+    fill: none;
+    stroke: var(--accent-1);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 138.23;
+    stroke-dashoffset: 138.23;
+    filter: drop-shadow(0 0 6px rgba(0, 247, 255, 0.7));
+    transition: stroke-dashoffset 0.35s ease;
+}
+
+/* Indeterminate mode: spinning arc (used during initial page load) */
+@keyframes spinner-spin {
+    from { transform: rotate(-90deg); }
+    to   { transform: rotate(270deg); }
+}
+
+.backfill-overlay.is-indeterminate .spinner-svg {
+    animation: spinner-spin 1.1s linear infinite;
+}
+
+.backfill-overlay.is-indeterminate .spinner-arc {
+    stroke-dashoffset: 90;   /* ~35% arc visible — classic spinner look */
+    transition: none;
+}
+
+.spinner-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.82em;
+    color: var(--accent-1);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(0, 247, 255, 0.55);
+    text-align: center;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
     header                  { padding: 10px 14px; }

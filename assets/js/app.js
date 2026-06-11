@@ -3,7 +3,7 @@
 // ── Constants ──────────────────────────────────────────────────────────────
 const LIVE_POLL_MS          = 2000;          // poll Supabase every 2 s
 const DRIP_MS               = 1000;          // release 1 queued point per second
-const DATA_WINDOW_MS        = 25 * 3600000;  // 25 h in-memory buffer
+const DATA_WINDOW_MS        = 49 * 3600000;  // 49 h in-memory buffer (covers 48 h display)
 const INITIAL_RANGE_MINUTES = 2;             // show last 2 min on startup
 const Y_DEFAULT             = { min: 49.5, max: 50.5 };
 
@@ -18,6 +18,7 @@ const state = {
     yRange:         { ...Y_DEFAULT },
     userPanned:     false,    // true = user navigated away from live tail
     userAdjustedY:  false,    // true = keep Y zoom until Reset is pressed
+    backfilling:    false,    // true = on-demand fetch in progress
     liveTimer:      null,
 };
 
@@ -73,7 +74,7 @@ function rowToPoint(r) {
 
 /** Insert null break-points wherever there is a gap > maxGapMs.
  *  Default: 12 s — catches 2+ missed MCU sends (send interval = 5 s). */
-function insertGapNulls(data, maxGapMs = 12000) {
+function insertGapNulls(data, maxGapMs = 5000) {
     if (data.length < 2) return data;
     const out = [];
     for (let i = 0; i < data.length; i++) {
@@ -84,24 +85,151 @@ function insertGapNulls(data, maxGapMs = 12000) {
     return out;
 }
 
+// ── Backfill overlay ────────────────────────────────────────────────────────
+const SPINNER_C = 138.23;   // 2π × r=22
+
+function showBackfillOverlay() {
+    const el = document.getElementById('backfill-overlay');
+    if (el) el.hidden = false;
+}
+
+function updateBackfillProgress(pct) {
+    const arc   = document.getElementById('backfill-arc');
+    const label = document.getElementById('backfill-label');
+    if (arc)   arc.style.strokeDashoffset = (SPINNER_C * (1 - pct / 100)).toFixed(2);
+    if (label) label.textContent = i18n[state.lang].loading + '… ' + Math.round(pct) + '%';
+}
+
+function hideBackfillOverlay() {
+    const el = document.getElementById('backfill-overlay');
+    if (el) el.hidden = true;
+}
+
 // ── Data fetch ─────────────────────────────────────────────────────────────
 
-// Load the most recent N points so the chart renders fully on first open.
-// Uses DESC order + reverse so we always get the freshest data regardless
-// of total row count in the table.
 async function fetchInitialData() {
+    const overlay = document.getElementById('backfill-overlay');
+    const label   = document.getElementById('backfill-label');
+    if (overlay) { overlay.classList.add('is-indeterminate'); overlay.hidden = false; }
+    if (label)   label.textContent = i18n[state.lang].loading + '…';
+
+    // ── Phase 1: load IndexedDB cache (instant, no network) ──────────────────
     try {
-        const rows = await sbFetchRecent(20000);          // newest 20 000 pts
-        rows.reverse();                                    // oldest-first for chart
-        state.allData = rows.map(rowToPoint);
-        if (rows.length > 0) {
-            state.lastFetched   = rows[rows.length - 1].timestamp;
-            state.lastFetchedMs = new Date(state.lastFetched).getTime();
+        const cached = await cacheRead(Date.now() - DATA_WINDOW_MS);
+        if (cached.length > 0) {
+            // IndexedDB returns in key (x) order — already sorted ASC
+            state.allData       = cached;
+            state.lastFetched   = new Date(cached[cached.length - 1].x).toISOString();
+            state.lastFetchedMs = cached[cached.length - 1].x;
+            updateChart({ scaleY: true });   // render cached data immediately
+        }
+    } catch (e) { console.warn('Cache read failed:', e); }
+
+    // ── Phase 2: fetch only the delta from Supabase ───────────────────────────
+    try {
+        if (state.lastFetched) {
+            // Cache exists — paginated catch-up for all new rows since last cached point
+            const PAGE = 1000;
+            let allNew = [];
+            for (let offset = 0; ; offset += PAGE) {
+                const rows = await sbFetchNew(state.lastFetched, PAGE, offset);
+                if (!rows.length) break;
+                allNew = allNew.concat(rows);
+                if (rows.length < PAGE) break;
+            }
+            if (allNew.length > 0) {
+                const pts = allNew.map(rowToPoint);
+                flushToAllData(pts);
+                state.lastFetched   = allNew[allNew.length - 1].timestamp;
+                state.lastFetchedMs = pts[pts.length - 1].x;
+                cacheWrite(pts).catch(console.warn);
+            }
+        } else {
+            // No cache — first visit: fetch the most recent 1 000 rows
+            const recent = await sbFetchRecent(1000);
+            recent.reverse();
+            const pts = recent.map(rowToPoint);
+            state.allData = pts;
+            if (pts.length > 0) {
+                state.lastFetched   = recent[recent.length - 1].timestamp;
+                state.lastFetchedMs = pts[pts.length - 1].x;
+                cacheWrite(pts).catch(console.warn);
+            }
+        }
+    } catch (err) { console.error('Initial fetch failed:', err); }
+
+    updateChart({ scaleY: true });
+    cachePrune(Date.now() - DATA_WINDOW_MS);
+    // Overlay stays — hides on first fetchNewPoints tick (auto-scroll confirmed active).
+}
+
+// Fetch historical data on demand when the viewport left edge moves past
+// what is already loaded. Adds a lookahead buffer so small scrolls don't
+// immediately trigger another request.
+async function ensureDataCoverage(viewportMinMs) {
+    if (state.backfilling) return;
+
+    let oldestLoaded = state.allData.length > 0 ? state.allData[0].x : Date.now();
+    const HARD_LIMIT = Date.now() - DATA_WINDOW_MS;
+
+    if (viewportMinMs >= oldestLoaded || oldestLoaded <= HARD_LIMIT + 60000) return;
+
+    const visibleSpan = state.xRange
+        ? (state.xRange.max - state.xRange.min)
+        : state.rangeMinutes * 60000;
+    const buffer    = Math.min(visibleSpan * 0.5, 30 * 60000);
+    const fetchFrom = Math.max(HARD_LIMIT, viewportMinMs - buffer);
+
+    // ── Step 1: serve from IndexedDB cache ───────────────────────────────────
+    try {
+        const cached = await cacheReadRange(fetchFrom, oldestLoaded);
+        if (cached.length > 0) {
+            state.allData = cached.concat(state.allData);
+            oldestLoaded  = state.allData[0].x;
+            updateChart();
+            if (oldestLoaded <= viewportMinMs) return;  // cache fully covered
+        }
+    } catch (e) { console.warn('Cache range read failed:', e); }
+
+    // ── Step 2: fetch uncovered range from Supabase ──────────────────────────
+    if (oldestLoaded <= viewportMinMs) return;
+
+    const since      = new Date(fetchFrom).toISOString();
+    const until      = new Date(oldestLoaded).toISOString();
+    const totalRange = oldestLoaded - fetchFrom;
+    const PAGE       = 1000;
+    let   prepend    = [];
+
+    state.backfilling = true;
+    showBackfillOverlay();
+    updateBackfillProgress(0);
+
+    try {
+        for (let offset = 0; ; offset += PAGE) {
+            const rows = await sbFetchRange(since, PAGE, offset, until);
+            if (!rows.length) break;
+            prepend = prepend.concat(rows);
+
+            const lastTs = new Date(rows[rows.length - 1].timestamp).getTime();
+            updateBackfillProgress(Math.min(99, ((lastTs - fetchFrom) / totalRange) * 100));
+
+            if (rows.length < PAGE) break;
         }
     } catch (err) {
-        console.error('Initial fetch failed:', err);
+        console.error('On-demand fetch failed:', err);
+        hideBackfillOverlay();
+        state.backfilling = false;
+        return;
     }
-    updateChart({ scaleY: true });
+
+    hideBackfillOverlay();
+    state.backfilling = false;
+
+    if (!prepend.length) return;
+    const newPts = prepend.map(rowToPoint);
+    state.allData = newPts.concat(state.allData);
+    cacheWrite(newPts).catch(console.warn);
+    updateChart();
 }
 
 async function fetchNewPoints() {
@@ -122,11 +250,19 @@ async function fetchNewPoints() {
             } else {
                 enqueueDrip(pts);
             }
+            cacheWrite(pts).catch(console.warn);
         }
     } catch (err) {
         console.error('Poll failed:', err);
     }
     updateDataAge();
+
+    // Hide the initial-load overlay on the first live poll — auto-scroll is now active.
+    const initOverlay = document.getElementById('backfill-overlay');
+    if (initOverlay && !initOverlay.hidden && initOverlay.classList.contains('is-indeterminate')) {
+        initOverlay.classList.remove('is-indeterminate');
+        initOverlay.hidden = true;
+    }
 }
 
 // ── Chart ──────────────────────────────────────────────────────────────────
@@ -199,6 +335,12 @@ const chart = new Chart(chartCanvas.getContext('2d'), {
             }
         },
         plugins: {
+            decimation: {
+                enabled:   true,
+                algorithm: 'lttb',   // preserves peaks & valleys best
+                samples:   1500,     // target points per render (≈ 1 pt/px at 1500 px wide)
+                threshold: 500,      // only decimates datasets larger than this
+            },
             legend: { display: false },
             tooltip: {
                 backgroundColor: 'rgba(20, 8, 50, 0.95)',
@@ -229,6 +371,7 @@ const chart = new Chart(chartCanvas.getContext('2d'), {
                         syncAxisState(c);
                         state.userPanned = true;
                         updateStats();
+                        if (state.xRange) ensureDataCoverage(state.xRange.min);
                     }
                 }
             }
@@ -245,6 +388,12 @@ chart.update = function(mode) {
     return r;
 };
 window.addEventListener('resize', positionAxisControls);
+
+// ── Wheel: mark as panned immediately so a concurrent live-poll updateChart()
+//    cannot reset the viewport before onZoomComplete fires.
+chartCanvas.addEventListener('wheel', () => {
+    state.userPanned = true;
+}, { passive: true, capture: true });
 
 // ── Pan (drag) ─────────────────────────────────────────────────────────────
 let isPanning = false, panStartX = 0, panStartRange = null;
@@ -274,7 +423,11 @@ function endPan() {
     isPanning = false;
     chartCanvas.style.cursor = 'grab';
     syncAxisState(chart);
-    if (state.xRange) { state.userPanned = true; updateStats(); }
+    if (state.xRange) {
+        state.userPanned = true;
+        updateStats();
+        ensureDataCoverage(state.xRange.min);
+    }
 }
 window.addEventListener('pointerup',     endPan);
 window.addEventListener('pointercancel', endPan);
@@ -459,6 +612,10 @@ function updateRangeButtons(minutes) {
 
 function updateChart({ scaleY = false } = {}) {
     chart.data.datasets[0].data = insertGapNulls(state.allData);
+    // Keep zoom-plugin x bounds in sync with actual data extent
+    const zoomLimitsX = chart.options.plugins.zoom.limits.x;
+    zoomLimitsX.min = state.allData.length > 0 ? state.allData[0].x : Date.now() - DATA_WINDOW_MS;
+    zoomLimitsX.max = Date.now() + 120000;   // allow up to 2 min ahead for live tail
     if (!state.userPanned) {
         updateViewport();
         if (scaleY && !state.userAdjustedY) autoScaleY();
@@ -490,6 +647,7 @@ function applyZoomButton(axis, direction) {
         }
         state.xRange     = { min: nMin, max: nMax };
         state.userPanned = true;
+        ensureDataCoverage(nMin);
     }
     applyAxisRanges();
     chart.update('none');
@@ -511,6 +669,7 @@ function applyLang(lang) {
         ['lbl-range',     t.range],
         ['lbl-axis-time', t.axisTime],
         ['lbl-axis-freq',    t.axisFreq],
+        ['clear-cache-btn',  t.clearCache],
         ['reset-btn',        t.resetZoom],
         ['save-btn',         t.saveCsv],
         ['val-data-age-old', t.oldData],
@@ -550,10 +709,28 @@ document.querySelectorAll('#range-buttons button[data-minutes]').forEach(btn =>
         if (!state.userAdjustedY) autoScaleY();
         updateChart();
         updateRangeButtons(state.rangeMinutes);
+        // Fetch historical data if the new range extends beyond what is loaded
+        const neededMin = Date.now() - state.rangeMinutes * 60000;
+        ensureDataCoverage(neededMin);
     })
 );
 
 // Reset zoom
+// Clear cache
+document.getElementById('clear-cache-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('clear-cache-btn');
+    btn.disabled    = true;
+    btn.textContent = '…';
+    try {
+        await cacheClear();
+        location.reload();          // reload with empty cache → fresh Supabase fetch
+    } catch (e) {
+        console.warn('Cache clear failed:', e);
+        btn.disabled    = false;
+        btn.textContent = i18n[state.lang].clearCache;
+    }
+});
+
 document.getElementById('reset-btn').addEventListener('click', () => {
     state.userPanned    = false;
     state.userAdjustedY = false;

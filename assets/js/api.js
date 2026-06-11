@@ -15,11 +15,13 @@ function sbHeaders() {
  * @param {number} limit  max rows (default 10 000)
  * @returns {Promise<Array>}
  */
-async function sbFetchRange(since, limit = 10000) {
-    const url =
+async function sbFetchRange(since, limit = 10000, offset = 0, until = null) {
+    let url =
         `${SUPABASE_URL}/rest/v1/frequency_log` +
-        `?timestamp=gte.${encodeURIComponent(since)}` +
-        `&order=timestamp.asc&limit=${limit}`;
+        `?timestamp=gte.${encodeURIComponent(since)}`;
+    if (until) url += `&timestamp=lt.${encodeURIComponent(until)}`;
+    url += `&order=timestamp.asc&limit=${limit}`;
+    if (offset) url += `&offset=${offset}`;
 
     const resp = await fetch(url, { headers: sbHeaders() });
     if (!resp.ok) throw new Error(`Supabase ${resp.status}: ${await resp.text()}`);
@@ -47,11 +49,12 @@ async function sbFetchRecent(limit = 20000) {
  * @param {number} limit  max rows (default 500)
  * @returns {Promise<Array>}
  */
-async function sbFetchNew(after, limit = 500) {
-    const url =
+async function sbFetchNew(after, limit = 500, offset = 0) {
+    let url =
         `${SUPABASE_URL}/rest/v1/frequency_log` +
         `?timestamp=gt.${encodeURIComponent(after)}` +
         `&order=timestamp.asc&limit=${limit}`;
+    if (offset) url += `&offset=${offset}`;
 
     const resp = await fetch(url, { headers: sbHeaders() });
     if (!resp.ok) throw new Error(`Supabase ${resp.status}: ${await resp.text()}`);

@@ -18,8 +18,10 @@ const i18n = {
         dataAgeUnit: 'min',
         dataAgeSec:  's',
         oldData:    'Old',
+        clearCache: 'Clear Cache',
         resetZoom:  'Auto Scroll',
         saveCsv:    'Save as .csv',
+        loading:    'Loading',
         rangeLabels: {
             1: '1 min', 2: '2 min', 10: '10 min',
             60: '1 h', 180: '3 h', 720: '12 h', 1440: '24 h', 2880: '48 h',
@@ -43,8 +45,10 @@ const i18n = {
         dataAgeUnit: 'хв.',
         dataAgeSec:  'с.',
         oldData:    'Старі',
+        clearCache: 'Очистити Кеш',
         resetZoom:  'Авто Скрол',
         saveCsv:    'Зберегти .csv',
+        loading:    'Завантаження',
         rangeLabels: {
             1: '1 хв.', 2: '2 хв.', 10: '10 хв.',
             60: '1 год.', 180: '3 год.', 720: '12 год.', 1440: '24 год.', 2880: '48 год.',
