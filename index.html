@@ -36,11 +36,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js" defer></script>
 
     <!-- ── App scripts (load order matters) ──────────────────────────────── -->
-    <script src="assets/js/config.js?v=20260611-8" defer></script>
-    <script src="assets/js/i18n.js?v=20260611-8"   defer></script>
-    <script src="assets/js/api.js?v=20260611-8"    defer></script>
-    <script src="assets/js/cache.js?v=20260611-8"  defer></script>
-    <script src="assets/js/app.js?v=20260611-8"    defer></script>
+    <script src="assets/js/config.js?v=20260611-10" defer></script>
+    <script src="assets/js/i18n.js?v=20260611-10"   defer></script>
+    <script src="assets/js/api.js?v=20260611-10"    defer></script>
+    <script src="assets/js/cache.js?v=20260611-10"  defer></script>
+    <script src="assets/js/app.js?v=20260611-10"    defer></script>
 </head>
 <body>
 
@@ -50,11 +50,25 @@
         <span class="dot" aria-hidden="true"></span>
         <span id="brand-text">Frequency Monitor</span>
     </div>
+    <button class="about-btn" id="about-btn">About</button>
     <div class="lang-toggle" role="group" aria-label="Language">
         <button data-lang="en" class="active" aria-pressed="true">EN</button>
         <button data-lang="ua" aria-pressed="false">UA</button>
     </div>
 </header>
+
+<!-- ── About dialog ──────────────────────────────────────────────────────── -->
+<dialog id="about-dialog" class="about-dialog">
+    <button class="about-close" id="about-close-btn" aria-label="Close">✕</button>
+    <div class="about-body">
+        <p class="about-brand">Designed by dgimbialo &copy; 2026</p>
+        <p class="about-sub">
+            Power Grid Frequency Monitor &nbsp;·&nbsp;
+            Real-time data via <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>
+        </p>
+        <p class="about-disclaimer" id="about-disclaimer-text"></p>
+    </div>
+</dialog>
 
 <!-- ── Main content ──────────────────────────────────────────────────────── -->
 <main>
@@ -105,9 +119,9 @@
             <button data-minutes="2880">48 h</button>
         </div>
         <div class="toolbar-group">
-            <button class="secondary-btn" id="clear-cache-btn">Clear Cache</button>
             <button class="secondary-btn" id="reset-btn">Auto</button>
             <button class="secondary-btn" id="save-btn">Save as .csv</button>
+            <button class="secondary-btn" id="clear-cache-btn">Clear Cache</button>
         </div>
     </section>
 
@@ -150,6 +164,7 @@
         <p>Power Grid Frequency Monitor &nbsp;·&nbsp;
            Real-time data via <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>
         </p>
+        <p class="disclaimer" id="footer-disclaimer"></p>
     </div>
 </footer>
 

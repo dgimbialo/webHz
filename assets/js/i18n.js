@@ -20,6 +20,8 @@ const i18n = {
         oldData:    'Old',
         clearCache: 'Clear Cache',
         resetZoom:  'Auto Scroll',
+        aboutBtn:   'About',
+        disclaimer: 'Disclaimer: The data displayed may differ significantly from actual grid frequency values. The measuring instruments and methods used are neither certified nor professionally calibrated. This website is a concept demonstration of IoT data transmission and real-time visualisation only, and is not intended for professional, metrological, or regulatory use.',
         saveCsv:    'Save as .csv',
         loading:    'Loading',
         rangeLabels: {
@@ -47,6 +49,8 @@ const i18n = {
         oldData:    'Старі',
         clearCache: 'Очистити Кеш',
         resetZoom:  'Авто Скрол',
+        aboutBtn:   'Про Сайт',
+        disclaimer: 'Відмова від відповідальності: Відображені дані можуть суттєво відрізнятися від реальних значень частоти електромережі. Вимірювальні прилади та методи, що використовуються, не є сертифікованими або професійно каліброваними. Цей сайт є виключно демонстрацією концепції передачі IoT-даних і їх відображення в реальному часі та не призначений для професійного, метрологічного або регуляторного використання.',
         saveCsv:    'Зберегти .csv',
         loading:    'Завантаження',
         rangeLabels: {

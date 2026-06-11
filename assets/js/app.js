@@ -669,10 +669,13 @@ function applyLang(lang) {
         ['lbl-range',     t.range],
         ['lbl-axis-time', t.axisTime],
         ['lbl-axis-freq',    t.axisFreq],
-        ['clear-cache-btn',  t.clearCache],
-        ['reset-btn',        t.resetZoom],
-        ['save-btn',         t.saveCsv],
-        ['val-data-age-old', t.oldData],
+        ['clear-cache-btn',    t.clearCache],
+        ['reset-btn',          t.resetZoom],
+        ['save-btn',           t.saveCsv],
+        ['val-data-age-old',   t.oldData],
+        ['footer-disclaimer',  t.disclaimer],
+        ['about-btn',          t.aboutBtn],
+        ['about-disclaimer-text', t.disclaimer],
     ].forEach(([id, val]) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
@@ -752,6 +755,12 @@ document.getElementById('save-btn').addEventListener('click', () => {
     });
     a.click();
 });
+
+// About dialog
+const aboutDialog = document.getElementById('about-dialog');
+document.getElementById('about-btn').addEventListener('click', () => aboutDialog.showModal());
+document.getElementById('about-close-btn').addEventListener('click', () => aboutDialog.close());
+aboutDialog.addEventListener('click', e => { if (e.target === aboutDialog) aboutDialog.close(); });
 
 // Language toggle
 document.querySelectorAll('.lang-toggle button').forEach(btn =>
