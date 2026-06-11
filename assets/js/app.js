@@ -756,9 +756,41 @@ document.getElementById('save-btn').addEventListener('click', () => {
     a.click();
 });
 
+// Side nav drawer
+const menuBtn    = document.getElementById('nav-hamburger');
+const navDrawer  = document.getElementById('nav-mobile-menu');
+const navOverlay = document.getElementById('nav-overlay');
+
+function closeMenu() {
+    navDrawer.classList.remove('open');
+    navOverlay.classList.remove('open');
+    menuBtn.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    navDrawer.setAttribute('aria-hidden', 'true');
+}
+
+function openMenu() {
+    navDrawer.classList.add('open');
+    navOverlay.classList.add('open');
+    menuBtn.classList.add('open');
+    menuBtn.setAttribute('aria-expanded', 'true');
+    navDrawer.setAttribute('aria-hidden', 'false');
+}
+
+menuBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    navDrawer.classList.contains('open') ? closeMenu() : openMenu();
+});
+
+navOverlay.addEventListener('click', closeMenu);
+document.getElementById('nav-drawer-close').addEventListener('click', closeMenu);
+
 // About dialog
 const aboutDialog = document.getElementById('about-dialog');
-document.getElementById('about-btn').addEventListener('click', () => aboutDialog.showModal());
+document.getElementById('about-btn').addEventListener('click', () => {
+    closeMenu();
+    aboutDialog.showModal();
+});
 document.getElementById('about-close-btn').addEventListener('click', () => aboutDialog.close());
 aboutDialog.addEventListener('click', e => { if (e.target === aboutDialog) aboutDialog.close(); });
 

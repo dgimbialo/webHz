@@ -44,13 +44,26 @@
 </head>
 <body>
 
+<!-- ── Side nav drawer ───────────────────────────────────────────────────── -->
+<div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
+<nav class="nav-drawer" id="nav-mobile-menu" aria-hidden="true">
+    <button class="nav-drawer-close" id="nav-drawer-close" aria-label="Close menu">✕</button>
+    <ul class="nav-drawer-list">
+        <li><button class="nav-drawer-item" id="about-btn"></button></li>
+    </ul>
+</nav>
+
 <!-- ── Header ────────────────────────────────────────────────────────────── -->
 <header>
-    <div class="brand">
-        <span class="dot" aria-hidden="true"></span>
-        <span id="brand-text">Frequency Monitor</span>
+    <div class="header-left">
+        <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu" aria-expanded="false" aria-controls="nav-mobile-menu">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="brand">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="brand-text">Frequency Monitor</span>
+        </div>
     </div>
-    <button class="about-btn" id="about-btn">About</button>
     <div class="lang-toggle" role="group" aria-label="Language">
         <button data-lang="en" class="active" aria-pressed="true">EN</button>
         <button data-lang="ua" aria-pressed="false">UA</button>
