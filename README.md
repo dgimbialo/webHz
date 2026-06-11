@@ -2,7 +2,7 @@
   <img src="foto/Foto_1.png" alt="Power Grid Frequency Monitor — Desktop" width="100%">
 </p>
 <p align="center">
-  <img src="foto/Foto_2.png" alt="Power Grid Frequency Monitor — Mobile" width="48%">
+  <img src="foto/Foto_2.png" alt="Power Grid Frequency Monitor — Mobile" width="100%">
 </p>
 
 <h1 align="center">⚡ Power Grid Frequency Monitor</h1>
