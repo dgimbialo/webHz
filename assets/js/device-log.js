@@ -17,6 +17,7 @@ const LOG_I18N = {
         conn_backlog:'Backlog sent',
         pending:     'pending…',
         smpl:        'samples',
+        disclaimer:  'Disclaimer: The data displayed may differ significantly from actual grid frequency values. The measuring instruments and methods used are neither certified nor professionally calibrated. This website is a concept demonstration of IoT data transmission and real-time visualisation only, and is not intended for professional, metrological, or regulatory use.',
     },
     ua: {
         title:      'Лог Пристрою',
@@ -35,6 +36,7 @@ const LOG_I18N = {
         conn_backlog:'Бекло надіслано',
         pending:     'очікує…',
         smpl:        'зразків',
+        disclaimer:  'Відмова від відповідальності: Відображені дані можуть суттєво відрізнятися від реальних значень частоти електромережі. Вимірювальні прилади та методи, що використовуються, не є сертифікованими або професійно каліброваними. Цей сайт є виключно демонстрацією концепції передачі IoT-даних і їх відображення в реальному часі та не призначений для професійного, метрологічного або регуляторного використання.',
     },
 };
 
@@ -170,6 +172,9 @@ function applyLang(lang) {
     document.querySelectorAll('.lang-toggle button.active').forEach(b => b.classList.remove('active'));
     const active = document.querySelector(`.lang-toggle button[data-lang="${lang}"]`);
     if (active) active.classList.add('active');
+
+    const disc = document.getElementById('footer-disclaimer');
+    if (disc) disc.textContent = t.disclaimer;
 
     if (cachedRows) renderTable(cachedRows);
 }
