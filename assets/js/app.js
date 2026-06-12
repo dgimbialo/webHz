@@ -90,7 +90,9 @@ const SPINNER_C = 138.23;   // 2π × r=22
 
 function showBackfillOverlay() {
     const el = document.getElementById('backfill-overlay');
-    if (el) el.hidden = false;
+    if (!el) return;
+    el.classList.remove('is-indeterminate');
+    el.hidden = false;
 }
 
 function updateBackfillProgress(pct) {
@@ -204,13 +206,17 @@ async function ensureDataCoverage(viewportMinMs) {
     showBackfillOverlay();
     updateBackfillProgress(0);
 
+    // Cursor-based pagination — O(1) per page (index seek to last timestamp).
+    // Offset-based is O(N) per page and becomes very slow for 12h/24h/48h ranges.
+    let cursorTs = since;
     try {
-        for (let offset = 0; ; offset += PAGE) {
-            const rows = await sbFetchRange(since, PAGE, offset, until);
+        for (;;) {
+            const rows = await sbFetchRange(cursorTs, PAGE, 0, until);
             if (!rows.length) break;
             prepend = prepend.concat(rows);
+            cursorTs = rows[rows.length - 1].timestamp;
 
-            const lastTs = new Date(rows[rows.length - 1].timestamp).getTime();
+            const lastTs = new Date(cursorTs).getTime();
             updateBackfillProgress(Math.min(99, ((lastTs - fetchFrom) / totalRange) * 100));
 
             if (rows.length < PAGE) break;
@@ -225,11 +231,23 @@ async function ensureDataCoverage(viewportMinMs) {
     hideBackfillOverlay();
     state.backfilling = false;
 
-    if (!prepend.length) return;
-    const newPts = prepend.map(rowToPoint);
-    state.allData = newPts.concat(state.allData);
-    cacheWrite(newPts).catch(console.warn);
-    updateChart();
+    if (prepend.length) {
+        const newPts = prepend.map(rowToPoint);
+        state.allData = newPts.concat(state.allData);
+        cacheWrite(newPts).catch(console.warn);
+        updateChart();
+    }
+
+    // If the user changed the range while this backfill was running (e.g. 24h→48h),
+    // the 48h request was skipped (backfilling=true guard). Re-check now,
+    // but only if the viewport actually needs older data than what's loaded.
+    const reCheckMin = state.xRange
+        ? state.xRange.min
+        : Date.now() - state.rangeMinutes * 60000;
+    const oldestNow = state.allData.length > 0 ? state.allData[0].x : Date.now();
+    if (reCheckMin < oldestNow) {
+        ensureDataCoverage(reCheckMin);
+    }
 }
 
 async function fetchNewPoints() {
@@ -396,24 +414,32 @@ chartCanvas.addEventListener('wheel', () => {
 }, { passive: true, capture: true });
 
 // ── Pan (drag) ─────────────────────────────────────────────────────────────
-let isPanning = false, panStartX = 0, panStartRange = null;
+let isPanning = false, panStartX = 0, panStartY = 0, panStartRange = null, panStartYRange = null;
 
 chartCanvas.addEventListener('contextmenu', e => e.preventDefault());
 chartCanvas.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     const xs = chart.scales.x;
     if (!xs || !Number.isFinite(xs.min)) return;
-    isPanning     = true;
-    panStartX     = e.clientX;
-    panStartRange = { min: Number(xs.min), max: Number(xs.max) };
+    isPanning      = true;
+    panStartX      = e.clientX;
+    panStartY      = e.clientY;
+    panStartRange  = { min: Number(xs.min), max: Number(xs.max) };
+    panStartYRange = { min: state.yRange.min, max: state.yRange.max };
     chartCanvas.style.cursor = 'grabbing';
     e.preventDefault();
 });
 window.addEventListener('pointermove', e => {
     if (!isPanning || !panStartRange) return;
-    const span  = panStartRange.max - panStartRange.min;
-    const shift = ((e.clientX - panStartX) / Math.max(1, chartCanvas.clientWidth)) * span;
-    state.xRange    = { min: panStartRange.min - shift, max: panStartRange.max - shift };
+    const xSpan  = panStartRange.max - panStartRange.min;
+    const xShift = ((e.clientX - panStartX) / Math.max(1, chartCanvas.clientWidth)) * xSpan;
+    state.xRange = { min: panStartRange.min - xShift, max: panStartRange.max - xShift };
+
+    const ySpan  = panStartYRange.max - panStartYRange.min;
+    const yShift = ((e.clientY - panStartY) / Math.max(1, chartCanvas.clientHeight)) * ySpan;
+    state.yRange = { min: panStartYRange.min + yShift, max: panStartYRange.max + yShift };
+    state.userAdjustedY = true;
+
     state.userPanned = true;
     applyAxisRanges();
     chart.update('none');
@@ -513,10 +539,9 @@ function autoScaleY() {
         ? state.allData.filter(p => p.y !== null && p.x >= r.min && p.x <= r.max)
         : state.allData.filter(p => p.y !== null);
     if (!pts.length) { state.yRange = { ...Y_DEFAULT }; return; }
-    const ys   = pts.map(p => p.y);
-    // Always include 50 Hz so the nominal line stays visible
-    const lo   = Math.min(...ys, 50);
-    const hi   = Math.max(...ys, 50);
+    // Use a loop instead of spread to avoid call-stack overflow on large datasets
+    let lo = 50, hi = 50;
+    for (const p of pts) { if (p.y < lo) lo = p.y; if (p.y > hi) hi = p.y; }
     const span = Math.max(hi - lo, 0.05);
     state.yRange = { min: lo - span * 0.2, max: hi + span * 0.2 };
 }
@@ -557,11 +582,12 @@ function updateStats() {
     const allValid = state.allData.filter(p => p.y !== null);
     const cur      = allValid.length ? allValid[allValid.length - 1].y : null;
     const visible  = getVisiblePoints();
-    const ys = visible.map(p => p.y);
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of visible) { if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; }
 
     document.getElementById('val-current').textContent    = cur !== null ? cur.toFixed(3) : '--';
-    document.getElementById('val-min-window').textContent = ys.length ? Math.min(...ys).toFixed(3) : '--';
-    document.getElementById('val-max-window').textContent = ys.length ? Math.max(...ys).toFixed(3) : '--';
+    document.getElementById('val-min-window').textContent = isFinite(minY) ? minY.toFixed(3) : '--';
+    document.getElementById('val-max-window').textContent = isFinite(maxY) ? maxY.toFixed(3) : '--';
     document.getElementById('val-points').textContent     = visible.length;
 
     // Keep range button highlight in sync with user's choice — never auto-change it
@@ -673,9 +699,10 @@ function applyLang(lang) {
         ['reset-btn',          t.resetZoom],
         ['save-btn',           t.saveCsv],
         ['val-data-age-old',   t.oldData],
-        ['footer-disclaimer',  t.disclaimer],
-        ['about-btn',          t.aboutBtn],
-        ['about-disclaimer-text', t.disclaimer],
+        ['footer-disclaimer',    t.disclaimer],
+        ['device-log-btn',       t.deviceLogBtn],
+        ['about-btn',            t.aboutBtn],
+        ['about-disclaimer-text',t.disclaimer],
     ].forEach(([id, val]) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
@@ -705,16 +732,19 @@ document.querySelectorAll('.axis-zoom-btn').forEach(btn =>
 
 // Range buttons
 document.querySelectorAll('#range-buttons button[data-minutes]').forEach(btn =>
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
         state.rangeMinutes = Number(btn.dataset.minutes);
         state.userPanned   = false;
         state.xRange       = null;
         if (!state.userAdjustedY) autoScaleY();
         updateChart();
         updateRangeButtons(state.rangeMinutes);
-        // Fetch historical data if the new range extends beyond what is loaded
+        // Fetch historical data if the new range extends beyond what is loaded,
+        // then always do a final updateChart() so the range is applied whether
+        // ensureDataCoverage fetched data or returned early (data already loaded).
         const neededMin = Date.now() - state.rangeMinutes * 60000;
-        ensureDataCoverage(neededMin);
+        await ensureDataCoverage(neededMin);
+        updateChart();
     })
 );
 

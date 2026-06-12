@@ -49,6 +49,19 @@ async function sbFetchRecent(limit = 20000) {
  * @param {number} limit  max rows (default 500)
  * @returns {Promise<Array>}
  */
+/**
+ * Fetch all wifi_event_log rows, newest first.
+ * @param {number} limit  max rows (default 200)
+ */
+async function sbFetchWifiLog(limit = 200) {
+    const url =
+        `${SUPABASE_URL}/rest/v1/wifi_event_log` +
+        `?order=event_epoch.desc&limit=${limit}`;
+    const resp = await fetch(url, { headers: sbHeaders() });
+    if (!resp.ok) throw new Error(`Supabase ${resp.status}: ${await resp.text()}`);
+    return resp.json();
+}
+
 async function sbFetchNew(after, limit = 500, offset = 0) {
     let url =
         `${SUPABASE_URL}/rest/v1/frequency_log` +

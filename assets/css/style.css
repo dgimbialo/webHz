@@ -180,9 +180,11 @@ header {
     font-weight: 700;
     letter-spacing: 2px;
     text-align: left;
+    text-decoration: none;
     padding: 18px 32px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, padding-left 0.15s;
+    box-sizing: border-box;
 }
 
 .nav-drawer-item:hover {
