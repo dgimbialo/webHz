@@ -31,9 +31,12 @@ let dripQueue = [];
 let dripTimer = null;
 
 function flushToAllData(pts) {
-    for (const pt of pts) state.allData.push(pt);
+    const now = Date.now();
+    for (const pt of pts) {
+        if (pt.x > 0 && pt.x <= now + 60000) state.allData.push(pt);
+    }
     // Trim buffer to DATA_WINDOW_MS
-    const cutoff = Date.now() - DATA_WINDOW_MS;
+    const cutoff = now - DATA_WINDOW_MS;
     if (state.allData.length > 3000 && state.allData[0].x < cutoff)
         state.allData = state.allData.filter(p => p.x >= cutoff);
 }
@@ -118,11 +121,13 @@ async function fetchInitialData() {
     // ── Phase 1: load IndexedDB cache (instant, no network) ──────────────────
     try {
         const cached = await cacheRead(Date.now() - DATA_WINDOW_MS);
-        if (cached.length > 0) {
+        const now = Date.now();
+        const validCached = cached.filter(p => p.x > 0 && p.x <= now + 60000);
+        if (validCached.length > 0) {
             // IndexedDB returns in key (x) order — already sorted ASC
-            state.allData       = cached;
-            state.lastFetched   = new Date(cached[cached.length - 1].x).toISOString();
-            state.lastFetchedMs = cached[cached.length - 1].x;
+            state.allData       = validCached;
+            state.lastFetched   = new Date(validCached[validCached.length - 1].x).toISOString();
+            state.lastFetchedMs = validCached[validCached.length - 1].x;
             updateChart({ scaleY: true });   // render cached data immediately
         }
     } catch (e) { console.warn('Cache read failed:', e); }
@@ -607,7 +612,7 @@ function updateDataAge() {
         return;
     }
 
-    const totalSecs = Math.floor((Date.now() - state.lastFetchedMs) / 1000);
+    const totalSecs = Math.max(0, Math.floor((Date.now() - state.lastFetchedMs) / 1000));
     const mins      = Math.floor(totalSecs / 60);
     const secs      = totalSecs % 60;
 
