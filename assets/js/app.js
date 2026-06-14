@@ -147,9 +147,14 @@ async function fetchInitialData() {
             if (allNew.length > 0) {
                 const pts = allNew.map(rowToPoint);
                 flushToAllData(pts);
-                state.lastFetched   = allNew[allNew.length - 1].timestamp;
-                state.lastFetchedMs = pts[pts.length - 1].x;
-                cacheWrite(pts).catch(console.warn);
+                const nowCatchup = Date.now();
+                let lastValidCatchup = null;
+                for (const p of pts) { if (p.x > 0 && p.x <= nowCatchup + 60000) lastValidCatchup = p; }
+                if (lastValidCatchup) {
+                    state.lastFetched   = new Date(lastValidCatchup.x).toISOString();
+                    state.lastFetchedMs = lastValidCatchup.x;
+                }
+                cacheWrite(pts.filter(p => p.x > 0 && p.x <= nowCatchup + 60000)).catch(console.warn);
             }
         } else {
             // No cache — first visit: fetch the most recent 1 000 rows
@@ -158,9 +163,14 @@ async function fetchInitialData() {
             const pts = recent.map(rowToPoint);
             state.allData = pts;
             if (pts.length > 0) {
-                state.lastFetched   = recent[recent.length - 1].timestamp;
-                state.lastFetchedMs = pts[pts.length - 1].x;
-                cacheWrite(pts).catch(console.warn);
+                const nowRecent = Date.now();
+                let lastValidRecent = null;
+                for (const p of pts) { if (p.x > 0 && p.x <= nowRecent + 60000) lastValidRecent = p; }
+                if (lastValidRecent) {
+                    state.lastFetched   = new Date(lastValidRecent.x).toISOString();
+                    state.lastFetchedMs = lastValidRecent.x;
+                }
+                cacheWrite(pts.filter(p => p.x > 0 && p.x <= nowRecent + 60000)).catch(console.warn);
             }
         }
     } catch (err) { console.error('Initial fetch failed:', err); }
@@ -261,8 +271,13 @@ async function fetchNewPoints() {
         const rows = await sbFetchNew(state.lastFetched);
         if (rows.length > 0) {
             const pts = rows.map(rowToPoint);
-            state.lastFetched   = rows[rows.length - 1].timestamp;
-            state.lastFetchedMs = new Date(state.lastFetched).getTime();
+            const nowPoll = Date.now();
+            let lastValidPoll = null;
+            for (const p of pts) { if (p.x > 0 && p.x <= nowPoll + 60000) lastValidPoll = p; }
+            if (lastValidPoll) {
+                state.lastFetched   = new Date(lastValidPoll.x).toISOString();
+                state.lastFetchedMs = lastValidPoll.x;
+            }
 
             // If data is old (> 15 s behind) or large batch → add instantly,
             // otherwise drip one point per second for smooth live animation.
