@@ -613,16 +613,21 @@ function updateDataAge() {
     }
 
     const totalSecs = Math.max(0, Math.floor((Date.now() - state.lastFetchedMs) / 1000));
-    const mins      = Math.floor(totalSecs / 60);
-    const secs      = totalSecs % 60;
+    const hrs  = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
 
-    if (mins < 1) {
-        // Under 1 minute — show seconds only: "42 s" / "42 с."
+    if (totalSecs < 60) {
+        // 0–59 s → "42 s"
         numEl.textContent  = totalSecs;
         unitEl.textContent = ' ' + t.dataAgeSec;
-    } else {
-        // 1 minute and over — show mm:ss + unit: "9:24 min" / "9:24 хв."
+    } else if (totalSecs < 3600) {
+        // 1 min – 59:59 → "9:24 min"
         numEl.textContent  = mins + ':' + String(secs).padStart(2, '0');
+        unitEl.textContent = ' ' + t.dataAgeUnit;
+    } else {
+        // 1 h+ → "2h 9:24"
+        numEl.textContent  = hrs + t.dataAgeHour + ' ' + mins + ':' + String(secs).padStart(2, '0');
         unitEl.textContent = ' ' + t.dataAgeUnit;
     }
 
