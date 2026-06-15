@@ -23,9 +23,10 @@ const state = {
 };
 
 // ── Drip Queue ─────────────────────────────────────────────────────────────
-// Smart drip: if queue is large (backlog) → flush all at once to catch up.
-// If queue is small (live) → release one point per second for smooth animation.
-const DRIP_CATCHUP_THRESHOLD = 10; // points; above this → instant flush
+// Live mode: release one valid point per second for smooth animation.
+// Stale fallback: if the oldest queued point is > DRIP_STALE_MS old,
+// flush the entire queue instantly so the chart catches up.
+const DRIP_STALE_MS = 15000; // ms; points older than this are batch-flushed
 
 let dripQueue = [];
 let dripTimer = null;
@@ -45,25 +46,28 @@ function dripNextPoint() {
     dripTimer = null;
     if (!dripQueue.length) return;
 
-    if (dripQueue.length > DRIP_CATCHUP_THRESHOLD) {
-        // Backlog detected — flush everything at once so chart catches up instantly
+    // If the oldest queued point has gone stale, flush all at once to catch up
+    if (Date.now() - dripQueue[0].x > DRIP_STALE_MS) {
         flushToAllData(dripQueue.splice(0));
     } else {
-        // Live mode — release one point per second
         flushToAllData([dripQueue.shift()]);
     }
 
     updateChart({ scaleY: !state.userPanned });
 
     if (dripQueue.length > 0)
-        dripTimer = setTimeout(dripNextPoint, dripQueue.length > DRIP_CATCHUP_THRESHOLD ? 50 : DRIP_MS);
+        dripTimer = setTimeout(dripNextPoint, DRIP_MS);
 }
 
 function enqueueDrip(points) {
-    for (const p of points)
-        if (!dripQueue.some(q => q.x === p.x)) dripQueue.push(p);
+    const now = Date.now();
+    for (const p of points) {
+        // Only enqueue valid timestamps — skip corrupted future rows
+        if (p.x > 0 && p.x <= now + 60000 && !dripQueue.some(q => q.x === p.x))
+            dripQueue.push(p);
+    }
     if (dripTimer === null && dripQueue.length > 0)
-        dripTimer = setTimeout(dripNextPoint, dripQueue.length > DRIP_CATCHUP_THRESHOLD ? 50 : DRIP_MS);
+        dripTimer = setTimeout(dripNextPoint, DRIP_MS);
 }
 
 // ── Data helpers ───────────────────────────────────────────────────────────
@@ -279,14 +283,18 @@ async function fetchNewPoints() {
                 state.lastFetchedMs = lastValidPoll.x;
             }
 
-            // If data is old (> 15 s behind) or large batch → add instantly,
-            // otherwise drip one point per second for smooth live animation.
-            const dataAge = Date.now() - state.lastFetchedMs;
-            if (dataAge > 15000 || pts.length > DRIP_CATCHUP_THRESHOLD) {
-                flushToAllData(pts);
+            // Only process valid timestamps; corrupted future rows are skipped here
+            // (enqueueDrip also guards, but batched oldPts go via flushToAllData directly).
+            const RECENT_MS  = 10000;
+            const validPts   = pts.filter(p => p.x > 0 && p.x <= nowPoll + 60000);
+            const oldPts     = validPts.filter(p => nowPoll - p.x > RECENT_MS);
+            const recentPts  = validPts.filter(p => nowPoll - p.x <= RECENT_MS);
+            if (oldPts.length > 0) {
+                flushToAllData(oldPts);
                 updateChart({ scaleY: !state.userPanned });
-            } else {
-                enqueueDrip(pts);
+            }
+            if (recentPts.length > 0) {
+                enqueueDrip(recentPts);
             }
             cacheWrite(pts).catch(console.warn);
         }

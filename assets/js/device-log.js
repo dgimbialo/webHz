@@ -1,6 +1,7 @@
 // ── i18n ──────────────────────────────────────────────────────────────────
 const LOG_I18N = {
     en: {
+        brand:      'Frequency Monitor',
         title:      'Device Log',
         subtitle:   'WiFi & Boot events · esp32_01',
         refresh:    '↻ Refresh',
@@ -20,6 +21,7 @@ const LOG_I18N = {
         disclaimer:  'Disclaimer: The data displayed may differ significantly from actual grid frequency values. The measuring instruments and methods used are neither certified nor professionally calibrated. This website is a concept demonstration of IoT data transmission and real-time visualisation only, and is not intended for professional, metrological, or regulatory use.',
     },
     ua: {
+        brand:      'Монітор частоти',
         title:      'Лог Пристрою',
         subtitle:   'WiFi & Boot події · esp32_01',
         refresh:    '↻ Оновити',
@@ -161,11 +163,13 @@ function applyLang(lang) {
     const titleEl = document.getElementById('log-title');
     const subEl   = document.getElementById('log-subtitle');
     const refBtn  = document.getElementById('refresh-btn');
-    const backBtn = document.querySelector('.log-back-btn');
-    if (titleEl) titleEl.textContent = t.title;
-    if (subEl)   subEl.textContent   = t.subtitle;
-    if (refBtn)  refBtn.textContent  = t.refresh;
-    if (backBtn) backBtn.textContent = t.back;
+    const brandEl = document.getElementById('brand-text');
+    const backArrow = document.querySelector('.back-arrow-symbol');
+    if (titleEl)   titleEl.textContent    = t.title;
+    if (subEl)     subEl.textContent      = t.subtitle;
+    if (refBtn)    refBtn.textContent     = t.refresh;
+    if (brandEl)   brandEl.textContent   = t.brand;
+    if (backArrow) backArrow.textContent = t.back;
 
     document.querySelectorAll('.lang-toggle button').forEach(b =>
         b.setAttribute('aria-pressed', b.dataset.lang === lang ? 'true' : 'false'));
