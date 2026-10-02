@@ -187,12 +187,15 @@
             background: linear-gradient(180deg, #1b0a3a, #0c0420);
             color: var(--text);
             box-shadow: var(--shadow);
+            overflow: hidden;              /* only .dl-dlg-body scrolls: one scrollbar */
         }
+        .dl-dlg[open] { display: flex; flex-direction: column; }
+        html:has(.dl-dlg[open]) { overflow: hidden; }   /* page behind the dialog does not scroll */
         .dl-dlg::backdrop { background: rgba(5, 2, 15, 0.7); backdrop-filter: blur(2px); }
         .dl-dlg-head {
             display: flex; align-items: center; gap: 12px;
             padding: 14px 18px; border-bottom: 1px solid var(--border);
-            position: sticky; top: 0; background: #1b0a3a;
+            background: #1b0a3a; flex-shrink: 0;
         }
         .dl-dlg-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.95em; }
         .dl-dlg-close {
@@ -200,7 +203,7 @@
             border-radius: 8px; width: 32px; height: 32px; font-size: 1.1em; cursor: pointer; flex-shrink: 0;
         }
         .dl-dlg-close:hover { color: var(--accent-1); border-color: var(--accent-1); }
-        .dl-dlg-body { padding: 6px 18px 18px; overflow-y: auto; max-height: calc(86vh - 62px); }
+        .dl-dlg-body { padding: 6px 18px 18px; overflow-y: auto; flex: 1; min-height: 0; }
         .dl-dlg-body section { margin-top: 14px; }
         .dl-dlg-body h3 {
             font-family: 'Orbitron', sans-serif; font-size: 0.72em; letter-spacing: 1.5px;
