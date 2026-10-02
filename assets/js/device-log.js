@@ -1,5 +1,5 @@
 // ── Device log: WiFi/boot events + crash reports + live device status ──────
-// Double-click (or Enter) on an event opens a dialog with its details and
+// A click (or Enter) on an event opens a dialog with its details and
 // context. Crash reports (device_crash_log) are attached to the BOOT event
 // they explain; reports that match no BOOT event get their own CRASH row.
 
@@ -11,7 +11,7 @@ const LOG_I18N = {
         subtitle:     'WiFi, boot & crash events · esp32_01',
         refresh:      '↻ Refresh',
         back:         '⇦',
-        hint:         'Double-click an event for details',
+        hint:         'Click an event for details',
         noData:       'No events found.',
         loadErr:      'Failed to load data.',
         colTime:      'Time',
@@ -110,7 +110,7 @@ const LOG_I18N = {
         subtitle:     'WiFi, перезапуски та падіння · esp32_01',
         refresh:      '↻ Оновити',
         back:         '⇦',
-        hint:         'Подвійний клік по події: деталі',
+        hint:         'Клік по події: деталі',
         noData:       'Подій не знайдено.',
         loadErr:      'Помилка завантаження даних.',
         colTime:      'Час',
@@ -614,14 +614,17 @@ function applyLang(lang) {
             applyLang(btn.dataset.lang);
         }));
 
-    // Rows: double-click or Enter opens the details dialog
+    // Rows: a click or Enter opens the details dialog
     const container = document.getElementById('log-container');
+    let openedAt = 0;
     const open = row => {
         const idx = Number(row.dataset.idx);
-        document.getElementById('evt-dialog').dataset.idx = idx;
+        const dlg = document.getElementById('evt-dialog');
+        if (!dlg.open) openedAt = performance.now();
+        dlg.dataset.idx = idx;
         openDetails(idx);
     };
-    container.addEventListener('dblclick', ev => {
+    container.addEventListener('click', ev => {
         const row = ev.target.closest('tr.dl-row');
         if (row) open(row);
     });
@@ -634,7 +637,11 @@ function applyLang(lang) {
     const dlg = document.getElementById('evt-dialog');
     dlg.querySelector('.dl-dlg-close').addEventListener('click', () => dlg.close());
     dlg.addEventListener('click', ev => {
-        if (ev.target === dlg) { dlg.close(); return; }          // backdrop
+        if (ev.target === dlg) {                                  // backdrop
+            // A habitual double-click on a row: its 2nd click lands here, keep it open
+            if (performance.now() - openedAt > 400) dlg.close();
+            return;
+        }
         const nb = ev.target.closest('.dl-nb');
         if (nb && !nb.disabled) {
             dlg.dataset.idx = nb.dataset.idx;

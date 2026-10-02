@@ -241,8 +241,11 @@ main {
     font-family: 'Orbitron', sans-serif;
     font-size: 1.8em;
     margin: 0;
-    color: var(--text);
-    text-shadow: 0 0 12px rgba(0, 247, 255, 0.35);
+    /* Close to the cyan accent of "Updated", a touch softer */
+    color: #45e3f2;
+    text-shadow:
+        0 0 8px  rgba(0, 220, 240, 0.5),
+        0 0 20px rgba(0, 220, 240, 0.28);
 }
 
 .badge {
@@ -259,40 +262,99 @@ main {
     white-space: nowrap;
 }
 
-/* ── Stats grid ────────────────────────────────────────────────────────── */
-.stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
+/* ── Header meta: data age next to "Updated" ──────────────────────────── */
+.page-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
-.stat-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 18px;
-    box-shadow: var(--shadow);
+/* "Updated" and data age: the same size as each other */
+#last-updated {
+    font-size: 0.96em;
+    padding: 4px 12px;
 }
 
-.stat-card .label {
+.data-age {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
     color: var(--muted);
-    font-size: 0.85em;
+    font-size: 0.96em;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+#lbl-data-age { text-transform: uppercase; }
+
+.data-age-value {
+    font-family: 'Orbitron', 'Inter', sans-serif;
+    color: var(--accent-1);
+    text-shadow: 0 0 8px rgba(0, 247, 255, 0.4);
+}
+
+/* ── Current reading, centred above the drum pointers ─────────────────── */
+.drum-readouts {
+    text-align: center;
+    padding: 4px 8px 8px;
+}
+
+.readout .label {
+    color: var(--muted);
+    font-size: 0.75em;
     letter-spacing: 1px;
     text-transform: uppercase;
 }
 
-.stat-card .value {
+.readout-current .value {
     font-family: 'Orbitron', sans-serif;
-    font-size: 1.6em;
-    margin-top: 4px;
-    color: var(--accent-1);
-    text-shadow: 0 0 10px rgba(0, 247, 255, 0.4);
+    font-size: 1.9em;
+    margin-top: 2px;
+    color: var(--accent-2);
+    text-shadow: 0 0 10px rgba(255, 43, 214, 0.45);
+    white-space: nowrap;
 }
 
-.stat-card.alt .value {
-    color: var(--accent-2);
-    text-shadow: 0 0 10px rgba(255, 43, 214, 0.4);
+.readout-current .value small { font-size: 0.6em; }
+
+/* ── Chart statistics row (top of the chart panel) ─────────────────────── */
+.chart-stats {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;   /* equal sides keep "points" centred */
+    align-items: baseline;
+    gap: 8px 16px;
+    padding: 0 4px 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(0, 247, 255, 0.12);
 }
+
+.chart-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.chart-stat .label {
+    color: var(--muted);
+    font-size: 0.75em;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.chart-stat .value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1em;
+    color: var(--accent-1);
+    text-shadow: 0 0 8px rgba(0, 247, 255, 0.4);
+}
+
+.chart-stat .value small { font-size: 0.7em; }
+
+.chart-stat-min    { justify-self: start; }
+.chart-stat-points { justify-self: center; }
+.chart-stat-max    { justify-self: end; }
 
 /* ── Toolbar ───────────────────────────────────────────────────────────── */
 .toolbar {
@@ -396,32 +458,24 @@ main {
 }
 
 /* ── Drum scale ────────────────────────────────────────────────────────── */
+/* Analog meter window in the site's neon style; the drum is drawn in app.js */
 .drum-scale-section {
     position: relative;
     width: 100%;
-    background: linear-gradient(to bottom, #090417 0%, #060312 50%, #090417 100%);
-    border-top:    1px solid rgba(0, 247, 255, 0.18);
-    border-bottom: 1px solid rgba(0, 247, 255, 0.18);
-    overflow: hidden;
+    padding: 6px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     user-select: none;
 }
 
 #drum-scale-canvas {
     display: block;
     width: 100%;
-    height: 72px;
-}
-
-.drum-center-line {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 2px;
-    height: 100%;
-    background: #00f7ff;
-    transform: translateX(-50%);
-    box-shadow: 0 0 10px rgba(0, 247, 255, 0.85), 0 0 3px rgba(0, 247, 255, 1);
-    pointer-events: none;
+    height: 88px;
+    border-radius: 9px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 43, 214, 0.18);
 }
 
 /* ── Chart wrapper ─────────────────────────────────────────────────────── */
@@ -691,14 +745,21 @@ main {
     .page-title             { font-size: 1.1em; }
     .badge                  { font-size: 0.72em; }
 
-    /* Stats: 2 columns on mobile */
-    .stats {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-    }
-    .stat-card              { padding: 10px 12px; }
-    .stat-card .value       { font-size: 1.25em; }
-    .stat-card .label       { font-size: 0.75em; }
+    /* Current above the drum, chart statistics row */
+    .drum-readouts          { padding: 2px 4px 6px; }
+    .readout .label         { font-size: 0.65em; }
+    .readout-current .value { font-size: 1.4em; }
+    .chart-stats            { gap: 6px 10px; padding: 0 2px 8px; }
+    .chart-stat             { flex-direction: column; gap: 2px; }   /* label above value */
+    .chart-stat-min         { align-items: flex-start; }
+    .chart-stat-points      { align-items: center; }
+    .chart-stat-max         { align-items: flex-end; }
+    .chart-stat .label      { font-size: 0.65em; letter-spacing: 0.5px; }
+    .chart-stat .value      { font-size: 0.85em; }
+    /* Header: "Updated" and data age, same size */
+    #last-updated,
+    .data-age               { font-size: 0.78em; }
+    #last-updated           { padding: 3px 8px; }
 
     /* Toolbar: stack vertically */
     .toolbar                { padding: 10px 12px; gap: 10px; }

@@ -203,7 +203,24 @@
             border-radius: 8px; width: 32px; height: 32px; font-size: 1.1em; cursor: pointer; flex-shrink: 0;
         }
         .dl-dlg-close:hover { color: var(--accent-1); border-color: var(--accent-1); }
-        .dl-dlg-body { padding: 6px 18px 18px; overflow-y: auto; flex: 1; min-height: 0; }
+        .dl-dlg-body {
+            padding: 6px 18px 18px; overflow-y: auto; flex: 1; min-height: 0;
+        }
+        /* Neon scrollbar. Firefox only understands the standard properties;
+           Chrome/Edge/Safari get the fully styled WebKit version below (in Chrome
+           the standard properties would override it and bring back arrows). */
+        @supports not selector(::-webkit-scrollbar) {
+            .dl-dlg-body { scrollbar-width: thin; scrollbar-color: rgba(0, 247, 255, 0.5) transparent; }
+        }
+        .dl-dlg-body::-webkit-scrollbar        { width: 8px; }
+        .dl-dlg-body::-webkit-scrollbar-track  { background: transparent; }
+        .dl-dlg-body::-webkit-scrollbar-button { display: none; }
+        .dl-dlg-body::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(0, 247, 255, 0.55), rgba(255, 43, 214, 0.45));
+            border-radius: 8px;
+            box-shadow: 0 0 6px rgba(0, 247, 255, 0.5);
+        }
+        .dl-dlg-body::-webkit-scrollbar-thumb:hover { background: rgba(0, 247, 255, 0.75); }
         .dl-dlg-body section { margin-top: 14px; }
         .dl-dlg-body h3 {
             font-family: 'Orbitron', sans-serif; font-size: 0.72em; letter-spacing: 1.5px;
@@ -270,7 +287,7 @@
         </div>
 
         <div class="dl-status" id="status-card"></div>
-        <p class="log-hint" id="log-hint">Double-click an event for details</p>
+        <p class="log-hint" id="log-hint">Click an event for details</p>
 
         <div id="log-container">
             <div class="log-status" id="log-status">Loading…</div>
@@ -296,7 +313,7 @@
     </div>
 </footer>
 
-<script src="assets/js/config.js?v=20261002-01"></script>
-<script src="assets/js/device-log.js?v=20261002-01"></script>
+<script src="assets/js/config.js?v=20261002-03"></script>
+<script src="assets/js/device-log.js?v=20261002-03"></script>
 </body>
 </html>

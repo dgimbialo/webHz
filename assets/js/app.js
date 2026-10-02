@@ -606,87 +606,215 @@ function positionAxisControls() {
 }
 
 // ── Drum Scale ─────────────────────────────────────────────────────────────
-let _drumDpr = 0;
+// Analog frequency-meter drum: a neon-lit scale printed on a rotating cylinder,
+// read against two fixed neon pointers (site palette: cyan scale, magenta pointers). The drum does not jump to each new
+// sample: a damped spring (like a real meter movement) carries it there.
+//
+// drawDrumScale() only sets the target; drumFrame() animates and draws, and
+// stops requesting frames once the drum has settled.
+
+const DRUM = {
+    pos:      null,    // frequency currently under the pointers (Hz)
+    vel:      0,       // Hz/s
+    target:   50.0,
+    lamp:     0,       // backlight brightness 0..1 (fades in after load)
+    running:  false,
+    lastT:    0,
+    dpr:      0,
+    // spring: natural frequency (rad/s) and damping ratio (< 1 = overshoot).
+    // zeta*omega = 1.7 /s: settles in ~2.3 s with a visible ~16% swing past
+    // the reading before it comes to rest
+    OMEGA:    3.4,
+    ZETA:     0.5,
+    // angular density of the printed scale: rad per Hz. With the drum edge at
+    // 75° this shows about ±0.34 Hz, 0.01 Hz steps ~30 px apart at the centre.
+    RAD_PER_HZ: 3.85,
+    EDGE_ANGLE: 75 * Math.PI / 180,
+};
+
+const drumReducedMotion = window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 
 function drawDrumScale() {
+    const allValid = state.allData.filter(p => p.y !== null);
+    if (allValid.length) DRUM.target = allValid[allValid.length - 1].y;
+    if (DRUM.pos === null) {
+        // Power-on: the drum swings in from a little below the reading
+        DRUM.pos = drumReducedMotion.matches ? DRUM.target : DRUM.target - 0.25;
+        DRUM.lamp = drumReducedMotion.matches ? 1 : 0;
+    }
+    if (drumReducedMotion.matches) { DRUM.pos = DRUM.target; DRUM.vel = 0; }
+    if (!DRUM.running) {
+        DRUM.running = true;
+        DRUM.lastT = performance.now();
+        requestAnimationFrame(drumFrame);
+    }
+}
+
+function drumFrame(now) {
+    const dt = Math.min(0.05, Math.max(0, (now - DRUM.lastT) / 1000));
+    DRUM.lastT = now;
+
+    // Damped spring toward the target (semi-implicit Euler, stable at 60 Hz)
+    const acc = DRUM.OMEGA * DRUM.OMEGA * (DRUM.target - DRUM.pos) - 2 * DRUM.ZETA * DRUM.OMEGA * DRUM.vel;
+    DRUM.vel += acc * dt;
+    DRUM.pos += DRUM.vel * dt;
+    // Backlight fade-in
+    DRUM.lamp = Math.min(1, DRUM.lamp + dt / 1.4);
+
+    renderDrum();
+
+    const settled = Math.abs(DRUM.target - DRUM.pos) < 2e-5 && Math.abs(DRUM.vel) < 2e-4 && DRUM.lamp >= 1;
+    if (settled || document.hidden) {
+        if (settled) { DRUM.pos = DRUM.target; DRUM.vel = 0; renderDrum(); }
+        DRUM.running = false;   // next drawDrumScale() call restarts the loop
+        return;
+    }
+    requestAnimationFrame(drumFrame);
+}
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) drawDrumScale(); });
+
+function renderDrum() {
     const canvas = document.getElementById('drum-scale-canvas');
     if (!canvas) return;
-
-    const allValid = state.allData.filter(p => p.y !== null);
-    const freq = allValid.length ? allValid[allValid.length - 1].y : 50.0;
-
     const W   = canvas.clientWidth;
-    const H   = canvas.clientHeight || 72;
+    const H   = canvas.clientHeight || 88;
     const dpr = window.devicePixelRatio || 1;
-
-    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr) || _drumDpr !== dpr) {
+    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr) || DRUM.dpr !== dpr) {
         canvas.width  = Math.round(W * dpr);
         canvas.height = Math.round(H * dpr);
-        _drumDpr = dpr;
+        DRUM.dpr = dpr;
     }
-
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
 
-    const PX_PER_HZ = W / 2;   // ±1 Hz visible at once
-    const cx        = W / 2;   // center x
+    const cx   = W / 2;
+    const R    = (W / 2) / Math.sin(DRUM.EDGE_ANGLE);   // drum radius in px
+    const lamp = DRUM.lamp;
+    const freq = DRUM.pos;
 
-    // Draw subtle horizontal reference lines (top / bottom strip borders)
-    ctx.strokeStyle = 'rgba(0, 247, 255, 0.08)';
-    ctx.lineWidth   = 1;
-    ctx.beginPath(); ctx.moveTo(0, 1);   ctx.lineTo(W, 1);   ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, H-1); ctx.lineTo(W, H-1); ctx.stroke();
+    // ── Scale face: deep violet glass, neon backlight behind it ───────────
+    const face = ctx.createLinearGradient(0, 0, 0, H);
+    face.addColorStop(0,    '#07021a');
+    face.addColorStop(0.5,  '#160838');
+    face.addColorStop(1,    '#07021a');
+    ctx.fillStyle = face;
+    ctx.fillRect(0, 0, W, H);
 
-    // Tick geometry
-    const TICK_MAJOR_H  = Math.round(H * 0.44);  // from each edge
-    const TICK_MEDIUM_H = Math.round(H * 0.28);
-    const TICK_MINOR_H  = Math.round(H * 0.14);
+    // Backlight spot: narrower (32% of the width) and 20% brighter at the
+    // centre, with extra stops so the fall-off stays smooth (no visible edge)
+    const glow = ctx.createRadialGradient(cx, H / 2, 0, cx, H / 2, W * 0.32);
+    glow.addColorStop(0,    `rgba(0, 247, 255, ${0.264 * lamp})`);
+    glow.addColorStop(0.18, `rgba(0, 220, 255, ${0.22 * lamp})`);
+    glow.addColorStop(0.38, `rgba(120, 60, 255, ${0.15 * lamp})`);
+    glow.addColorStop(0.6,  `rgba(200, 50, 235, ${0.08 * lamp})`);
+    glow.addColorStop(0.82, `rgba(255, 43, 214, ${0.025 * lamp})`);
+    glow.addColorStop(1,    'rgba(255, 43, 214, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
 
-    // Visible Hz range — iterate at 0.02 Hz step
-    const STEP  = 0.02;
-    const start = Math.floor((freq - W / PX_PER_HZ) / STEP) * STEP;
-    const end   = freq + W / PX_PER_HZ + STEP;
+    // ── Printed scale on the cylinder ─────────────────────────────────────
+    const STEP    = 0.01;
+    const spanHz  = DRUM.EDGE_ANGLE / DRUM.RAD_PER_HZ + 0.02;
+    const first   = Math.ceil((freq - spanHz) / STEP);
+    const last    = Math.floor((freq + spanHz) / STEP);
+    const midY    = H / 2;
+    // Label every 0.05 Hz where they fit (px between labels at the centre), else every 0.1 Hz
+    const labelEvery = R * DRUM.RAD_PER_HZ * 0.05 >= 46 ? 5 : 10;
 
-    for (let hz = start; hz <= end; hz = Math.round((hz + STEP) * 1e6) / 1e6) {
-        const x = cx + (hz - freq) * PX_PER_HZ;
-        if (x < -2 || x > W + 2) continue;
+    for (let i = first; i <= last; i++) {
+        const hz    = i * STEP;
+        const theta = (hz - freq) * DRUM.RAD_PER_HZ;
+        if (Math.abs(theta) > DRUM.EDGE_ANGLE + 0.05) continue;
+        const x     = cx + R * Math.sin(theta);
+        const facing = Math.cos(theta);                 // 1 at the front, ~0.26 at the edge
+        const isMajor  = i % 10 === 0;                   // 0.1 Hz
+        const isLabel  = i % labelEvery === 0;           // 0.05 Hz (0.1 Hz on narrow screens)
+        const isMid    = i % 5 === 0;                    // 0.05 Hz tick, labelled or not
+        const tickLen  = isMajor ? H * 0.30 : isMid ? H * 0.22 : H * 0.12;
+        const alpha    = lamp * (0.25 + 0.75 * facing) * (isLabel ? 1 : 0.7);
 
-        const isMajor  = Math.abs(hz - Math.round(hz * 2)  / 2)  < 0.002; // 0.5 Hz
-        const isMedium = !isMajor && Math.abs(hz - Math.round(hz * 10) / 10) < 0.002; // 0.1 Hz
-
-        let tickH, strokeStyle, lw;
-        if (isMajor) {
-            tickH       = TICK_MAJOR_H;
-            strokeStyle = 'rgba(0, 247, 255, 0.90)';
-            lw          = 1.5;
-        } else if (isMedium) {
-            tickH       = TICK_MEDIUM_H;
-            strokeStyle = 'rgba(0, 247, 255, 0.50)';
-            lw          = 1;
-        } else {
-            tickH       = TICK_MINOR_H;
-            strokeStyle = 'rgba(0, 247, 255, 0.20)';
-            lw          = 0.8;
-        }
-
-        ctx.strokeStyle = strokeStyle;
-        ctx.lineWidth   = lw;
+        ctx.save();
+        // 50.00 Hz, the nominal frequency, is green like the dashed line on the chart
+        const isNominal = i === 5000;
+        const rgb       = isNominal ? '0, 230, 80' : '0, 247, 255';
+        ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
+        ctx.lineWidth   = (isMajor ? 2 : isLabel ? 1.5 : 1) * Math.max(0.45, facing);
+        ctx.shadowColor = `rgba(${rgb}, ${0.9 * lamp})`;
+        ctx.shadowBlur  = isLabel ? 6 * facing : 0;
         ctx.beginPath();
-        ctx.moveTo(x, 0);          ctx.lineTo(x, tickH);       // top tick
-        ctx.moveTo(x, H);          ctx.lineTo(x, H - tickH);   // bottom tick
+        ctx.moveTo(x, 4);       ctx.lineTo(x, 4 + tickLen);
+        ctx.moveTo(x, H - 4);   ctx.lineTo(x, H - 4 - tickLen);
         ctx.stroke();
 
-        // Label at major (0.5 Hz) ticks
-        if (isMajor) {
-            const label    = hz.toFixed(1) + ' Hz';
-            const nearCenter = Math.abs(x - cx) < 20;
-            ctx.font      = `500 11px 'Inter', monospace`;
-            ctx.fillStyle = nearCenter ? 'rgba(0, 247, 255, 0.95)' : 'rgba(154, 163, 199, 0.80)';
-            ctx.textAlign = 'center';
-            ctx.fillText(label, x, H / 2 + 5);
+        if (isLabel && facing > 0.55) {   // near the edges digits would crowd: ticks only
+            // Digits wrap around the drum: squeeze them horizontally with the curve
+            ctx.translate(x, midY);
+            ctx.scale(Math.max(0.2, facing), 1);
+            ctx.font         = `${isMajor ? 700 : 600} ${isMajor ? 15 : 12}px 'Inter', sans-serif`;
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle    = isNominal ? `rgba(150, 255, 170, ${alpha})` : `rgba(190, 252, 255, ${alpha})`;
+            ctx.shadowBlur   = 8 * facing * lamp;
+            ctx.fillText(hz.toFixed(2), 0, 1);
         }
+        ctx.restore();
     }
+
+    // ── Cylinder shading: edges turn away into the dark ──────────────────
+    const sides = ctx.createLinearGradient(0, 0, W, 0);
+    sides.addColorStop(0,    'rgba(5, 1, 16, 0.94)');
+    sides.addColorStop(0.16, 'rgba(5, 1, 16, 0.4)');
+    sides.addColorStop(0.32, 'rgba(5, 1, 16, 0)');
+    sides.addColorStop(0.68, 'rgba(5, 1, 16, 0)');
+    sides.addColorStop(0.84, 'rgba(5, 1, 16, 0.4)');
+    sides.addColorStop(1,    'rgba(5, 1, 16, 0.94)');
+    ctx.fillStyle = sides;
+    ctx.fillRect(0, 0, W, H);
+
+    const bands = ctx.createLinearGradient(0, 0, 0, H);
+    bands.addColorStop(0,    'rgba(5, 1, 16, 0.6)');
+    bands.addColorStop(0.12, 'rgba(5, 1, 16, 0)');
+    bands.addColorStop(0.88, 'rgba(5, 1, 16, 0)');
+    bands.addColorStop(1,    'rgba(5, 1, 16, 0.65)');
+    ctx.fillStyle = bands;
+    ctx.fillRect(0, 0, W, H);
+
+    // Glass reflection across the upper part of the window
+    const glass = ctx.createLinearGradient(0, 0, 0, H * 0.45);
+    glass.addColorStop(0,   'rgba(255, 255, 255, 0.07)');
+    glass.addColorStop(1,   'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = glass;
+    ctx.fillRect(0, 0, W, H * 0.45);
+
+    // ── Fixed pointers: neon magenta triangles top and bottom, hairline ──
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 43, 214, 0.75)';
+    ctx.shadowColor = 'rgba(255, 43, 214, 0.9)';
+    ctx.shadowBlur  = 6;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, 7); ctx.lineTo(cx, H - 7);
+    ctx.stroke();
+
+    const tri = (tipY, baseY) => {
+        ctx.beginPath();
+        ctx.moveTo(cx, tipY);
+        ctx.lineTo(cx - 4, baseY);
+        ctx.lineTo(cx + 4, baseY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    };
+    ctx.fillStyle   = '#ff2bd6';
+    ctx.strokeStyle = 'rgba(255, 200, 245, 0.9)';
+    ctx.lineWidth   = 1;
+    ctx.shadowColor = 'rgba(255, 43, 214, 1)';
+    ctx.shadowBlur  = 8;
+    tri(7, 0);           // top, pointing down
+    tri(H - 7, H);       // bottom, pointing up
+    ctx.restore();
 }
 
 // ── Stats & UI update ──────────────────────────────────────────────────────
@@ -742,9 +870,13 @@ function updateDataAge() {
     card.classList.toggle('old', totalSecs > 120); // > 2 minutes
 }
 
-function updateLastUpdated() {
+let lastUpdatedAt = null;   // kept so a language switch re-renders the same time
+
+function updateLastUpdated(at = new Date()) {
+    lastUpdatedAt = at;
     const locale = state.lang === 'ua' ? 'uk-UA' : 'en-GB';
-    const stamp  = new Date().toLocaleTimeString(locale, { hour12: false });
+    const date   = at.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
+    const stamp  = `${date} ${at.toLocaleTimeString(locale, { hour12: false })}`;
     document.getElementById('last-updated').textContent =
         `${i18n[state.lang].updated}: ${stamp}`;
 }
@@ -831,6 +963,8 @@ function applyLang(lang) {
         if (label) btn.textContent = label;
     });
     chart.data.datasets[0].label = t.dataset;
+    document.querySelectorAll('.unit-hz').forEach(el => { el.textContent = t.unit; });
+    if (lastUpdatedAt) updateLastUpdated(lastUpdatedAt);
     document.querySelectorAll('.lang-toggle button').forEach(b =>
         b.classList.toggle('active', b.dataset.lang === lang));
 }
@@ -942,13 +1076,25 @@ document.getElementById('about-btn').addEventListener('click', () => {
 document.getElementById('about-close-btn').addEventListener('click', () => aboutDialog.close());
 aboutDialog.addEventListener('click', e => { if (e.target === aboutDialog) aboutDialog.close(); });
 
-// Language toggle
+// Language toggle. The choice is shared with device-log.html via localStorage
+// 'lang', so switching on one page carries over to the other.
 document.querySelectorAll('.lang-toggle button').forEach(btn =>
-    btn.addEventListener('click', () => applyLang(btn.dataset.lang)));
+    btn.addEventListener('click', () => {
+        try { localStorage.setItem('lang', btn.dataset.lang); } catch { /* storage blocked */ }
+        applyLang(btn.dataset.lang);
+    }));
+
+function savedLang() {
+    try {
+        const lang = localStorage.getItem('lang');
+        if (lang && i18n[lang]) return lang;
+    } catch { /* storage blocked */ }
+    return state.lang;
+}
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 (async function boot() {
-    applyLang(state.lang);
+    applyLang(savedLang());
     updateRangeButtons(state.rangeMinutes);
     await fetchInitialData();
     state.liveTimer = setInterval(fetchNewPoints, LIVE_POLL_MS);
