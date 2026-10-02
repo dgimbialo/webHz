@@ -134,6 +134,112 @@
             transition: color 0.18s, border-color 0.18s;
         }
         .log-refresh-btn:hover { color: var(--accent-1); border-color: var(--accent-1); }
+
+        .evt-crash { background: rgba(255,43,214,0.14); color: #ff6be3; border: 1px solid rgba(255,43,214,0.4); }
+
+        /* ── Status card ─────────────────────────────────────────────── */
+        .dl-status {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+        }
+        .dl-status-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .dl-status-title {
+            font-family: 'Orbitron', sans-serif; font-size: 0.8em; letter-spacing: 1.5px; color: var(--accent-1);
+        }
+        .dl-status-empty { color: var(--muted); font-size: 0.85em; }
+        .dl-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 10px 18px;
+        }
+        .dl-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .dl-cell .dl-k { color: var(--muted); font-size: 0.75em; }
+        .dl-cell .dl-v { font-size: 0.9em; overflow-wrap: anywhere; }
+        .dl-pill { padding: 2px 10px; border-radius: 999px; font-size: 0.75em; font-weight: 600; }
+        .dl-pill-on  { background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid rgba(0,230,118,0.4); }
+        .dl-pill-off { background: rgba(255,82,82,0.15); color: #ff5252; border: 1px solid rgba(255,82,82,0.4); }
+        .dl-dim { color: var(--muted); font-size: 0.85em; }
+        .dl-ok  { color: #00e676; }
+        .dl-bad { color: #ff5252; font-weight: 600; }
+        code { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 0.92em; }
+
+        /* ── Table rows ──────────────────────────────────────────────── */
+        .log-hint { color: var(--muted); font-size: 0.78em; margin: -18px 0 14px; }
+        .dl-row { cursor: pointer; user-select: none; }
+        .dl-row:focus-visible td { outline: none; background: rgba(0,247,255,0.08); }
+        .dl-row-crash .log-ts { color: #ff8be8; }
+        .dl-report-tag {
+            margin-left: 8px; padding: 1px 8px; border-radius: 6px; font-size: 0.85em;
+            background: rgba(255,43,214,0.12); color: #ff8be8; border: 1px solid rgba(255,43,214,0.35);
+            white-space: nowrap;
+        }
+
+        /* ── Details dialog ──────────────────────────────────────────── */
+        .dl-dlg {
+            width: min(680px, calc(100vw - 32px));
+            max-height: 86vh;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: linear-gradient(180deg, #1b0a3a, #0c0420);
+            color: var(--text);
+            box-shadow: var(--shadow);
+        }
+        .dl-dlg::backdrop { background: rgba(5, 2, 15, 0.7); backdrop-filter: blur(2px); }
+        .dl-dlg-head {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 18px; border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; background: #1b0a3a;
+        }
+        .dl-dlg-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.95em; }
+        .dl-dlg-close {
+            margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--muted);
+            border-radius: 8px; width: 32px; height: 32px; font-size: 1.1em; cursor: pointer; flex-shrink: 0;
+        }
+        .dl-dlg-close:hover { color: var(--accent-1); border-color: var(--accent-1); }
+        .dl-dlg-body { padding: 6px 18px 18px; overflow-y: auto; max-height: calc(86vh - 62px); }
+        .dl-dlg-body section { margin-top: 14px; }
+        .dl-dlg-body h3 {
+            font-family: 'Orbitron', sans-serif; font-size: 0.72em; letter-spacing: 1.5px;
+            color: var(--accent-1); margin: 0 0 8px; font-weight: 500;
+        }
+        .dl-kv {
+            display: grid; grid-template-columns: 210px 1fr; gap: 12px;
+            padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.88em;
+        }
+        .dl-kv .dl-k { color: var(--muted); }
+        .dl-kv .dl-v { overflow-wrap: anywhere; }
+        .dl-bt { display: block; line-height: 1.6; }
+        .dl-cmd {
+            display: flex; gap: 10px; align-items: flex-start;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 10px; font-size: 0.8em;
+        }
+        .dl-cmd code { flex: 1; overflow-wrap: anywhere; }
+        .dl-copy {
+            background: transparent; border: 1px solid var(--border); color: var(--accent-1);
+            border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 0.95em; flex-shrink: 0;
+        }
+        .dl-nbs { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+        .dl-nb {
+            display: flex; align-items: center; gap: 12px; text-align: left;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            color: var(--text); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; font-size: 0.85em;
+        }
+        .dl-nb:hover:not(:disabled) { border-color: var(--border); }
+        .dl-nb-self { border-color: var(--border); background: rgba(0,247,255,0.06); cursor: default; }
+        .dl-nb-time { font-family: 'Inter', monospace; }
+
+        @media (max-width: 560px) {
+            .log-page { padding: 20px 16px 48px; }
+            .log-header { flex-wrap: wrap; gap: 12px; }
+            .log-subtitle { margin: 0; width: 100%; order: 3; }
+            .dl-kv { grid-template-columns: 1fr; gap: 2px; }
+            .dl-status-grid { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -160,11 +266,22 @@
             <button class="log-refresh-btn" id="refresh-btn">↻ Refresh</button>
         </div>
 
+        <div class="dl-status" id="status-card"></div>
+        <p class="log-hint" id="log-hint">Double-click an event for details</p>
+
         <div id="log-container">
             <div class="log-status" id="log-status">Loading…</div>
         </div>
     </div>
 </main>
+
+<dialog class="dl-dlg" id="evt-dialog" aria-labelledby="evt-dialog-title">
+    <div class="dl-dlg-head">
+        <div class="dl-dlg-title" id="evt-dialog-title"></div>
+        <button type="button" class="dl-dlg-close" aria-label="Close">✕</button>
+    </div>
+    <div class="dl-dlg-body"></div>
+</dialog>
 
 <footer class="app-footer">
     <div class="footer-content">
@@ -176,7 +293,7 @@
     </div>
 </footer>
 
-<script src="assets/js/config.js?v=20260613-04"></script>
-<script src="assets/js/device-log.js?v=20260613-04"></script>
+<script src="assets/js/config.js?v=20261002-01"></script>
+<script src="assets/js/device-log.js?v=20261002-01"></script>
 </body>
 </html>
