@@ -433,7 +433,7 @@ chart.update = function(mode) {
     positionAxisControls();
     return r;
 };
-window.addEventListener('resize', positionAxisControls);
+window.addEventListener('resize', () => { positionAxisControls(); drawDrumScale(); });
 
 // ── Wheel: mark as panned immediately so a concurrent live-poll updateChart()
 //    cannot reset the viewport before onZoomComplete fires.
@@ -605,6 +605,90 @@ function positionAxisControls() {
     }
 }
 
+// ── Drum Scale ─────────────────────────────────────────────────────────────
+let _drumDpr = 0;
+
+function drawDrumScale() {
+    const canvas = document.getElementById('drum-scale-canvas');
+    if (!canvas) return;
+
+    const allValid = state.allData.filter(p => p.y !== null);
+    const freq = allValid.length ? allValid[allValid.length - 1].y : 50.0;
+
+    const W   = canvas.clientWidth;
+    const H   = canvas.clientHeight || 72;
+    const dpr = window.devicePixelRatio || 1;
+
+    if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr) || _drumDpr !== dpr) {
+        canvas.width  = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        _drumDpr = dpr;
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const PX_PER_HZ = W / 2;   // ±1 Hz visible at once
+    const cx        = W / 2;   // center x
+
+    // Draw subtle horizontal reference lines (top / bottom strip borders)
+    ctx.strokeStyle = 'rgba(0, 247, 255, 0.08)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(0, 1);   ctx.lineTo(W, 1);   ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, H-1); ctx.lineTo(W, H-1); ctx.stroke();
+
+    // Tick geometry
+    const TICK_MAJOR_H  = Math.round(H * 0.44);  // from each edge
+    const TICK_MEDIUM_H = Math.round(H * 0.28);
+    const TICK_MINOR_H  = Math.round(H * 0.14);
+
+    // Visible Hz range — iterate at 0.02 Hz step
+    const STEP  = 0.02;
+    const start = Math.floor((freq - W / PX_PER_HZ) / STEP) * STEP;
+    const end   = freq + W / PX_PER_HZ + STEP;
+
+    for (let hz = start; hz <= end; hz = Math.round((hz + STEP) * 1e6) / 1e6) {
+        const x = cx + (hz - freq) * PX_PER_HZ;
+        if (x < -2 || x > W + 2) continue;
+
+        const isMajor  = Math.abs(hz - Math.round(hz * 2)  / 2)  < 0.002; // 0.5 Hz
+        const isMedium = !isMajor && Math.abs(hz - Math.round(hz * 10) / 10) < 0.002; // 0.1 Hz
+
+        let tickH, strokeStyle, lw;
+        if (isMajor) {
+            tickH       = TICK_MAJOR_H;
+            strokeStyle = 'rgba(0, 247, 255, 0.90)';
+            lw          = 1.5;
+        } else if (isMedium) {
+            tickH       = TICK_MEDIUM_H;
+            strokeStyle = 'rgba(0, 247, 255, 0.50)';
+            lw          = 1;
+        } else {
+            tickH       = TICK_MINOR_H;
+            strokeStyle = 'rgba(0, 247, 255, 0.20)';
+            lw          = 0.8;
+        }
+
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth   = lw;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);          ctx.lineTo(x, tickH);       // top tick
+        ctx.moveTo(x, H);          ctx.lineTo(x, H - tickH);   // bottom tick
+        ctx.stroke();
+
+        // Label at major (0.5 Hz) ticks
+        if (isMajor) {
+            const label    = hz.toFixed(1) + ' Hz';
+            const nearCenter = Math.abs(x - cx) < 20;
+            ctx.font      = `500 11px 'Inter', monospace`;
+            ctx.fillStyle = nearCenter ? 'rgba(0, 247, 255, 0.95)' : 'rgba(154, 163, 199, 0.80)';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x, H / 2 + 5);
+        }
+    }
+}
+
 // ── Stats & UI update ──────────────────────────────────────────────────────
 function updateStats() {
     const allValid = state.allData.filter(p => p.y !== null);
@@ -620,6 +704,7 @@ function updateStats() {
 
     // Keep range button highlight in sync with user's choice — never auto-change it
     updateRangeButtons(state.rangeMinutes);
+    drawDrumScale();
 }
 
 function updateDataAge() {
