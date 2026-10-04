@@ -270,28 +270,10 @@ main {
     flex-wrap: wrap;
 }
 
-/* "Updated" and data age: the same size as each other */
+/* "Updated" badge in the page header */
 #last-updated {
     font-size: 0.96em;
     padding: 4px 12px;
-}
-
-.data-age {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 0.96em;
-    letter-spacing: 1px;
-    white-space: nowrap;
-}
-
-#lbl-data-age { text-transform: uppercase; }
-
-.data-age-value {
-    font-family: 'Orbitron', 'Inter', sans-serif;
-    color: var(--accent-1);
-    text-shadow: 0 0 8px rgba(0, 247, 255, 0.4);
 }
 
 /* ── Current reading, centred above the drum pointers ─────────────────── */
@@ -353,8 +335,15 @@ main {
 .chart-stat .value small { font-size: 0.7em; }
 
 .chart-stat-min    { justify-self: start; }
-.chart-stat-points { justify-self: center; }
 .chart-stat-max    { justify-self: end; }
+
+/* Centre column: points + data age side by side */
+.chart-stat-center {
+    justify-self: center;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 24px;
+}
 
 /* ── Toolbar ───────────────────────────────────────────────────────────── */
 .toolbar {
@@ -388,6 +377,7 @@ main {
 .range-buttons button,
 .secondary-btn,
 .axis-zoom-btn {
+    touch-action: manipulation;   /* repeated taps must not zoom the page */
     background: rgba(0, 247, 255, 0.08);
     color: var(--text);
     border: 1px solid var(--border);
@@ -480,6 +470,10 @@ main {
 
 /* ── Chart wrapper ─────────────────────────────────────────────────────── */
 .chart-wrapper {
+    /* Phones: no double-tap page zoom anywhere in the chart panel (repeated
+       taps on the ± axis buttons zoomed the whole page). Scrolling and pinch
+       still work; the canvas itself handles its own zoom/pan (touch-action: none). */
+    touch-action: manipulation;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 18px;
@@ -752,13 +746,13 @@ main {
     .chart-stats            { gap: 6px 10px; padding: 0 2px 8px; }
     .chart-stat             { flex-direction: column; gap: 2px; }   /* label above value */
     .chart-stat-min         { align-items: flex-start; }
-    .chart-stat-points      { align-items: center; }
+    .chart-stat-center      { gap: 12px; }
+    .chart-stat-center .chart-stat { align-items: center; }
     .chart-stat-max         { align-items: flex-end; }
     .chart-stat .label      { font-size: 0.65em; letter-spacing: 0.5px; }
     .chart-stat .value      { font-size: 0.85em; }
     /* Header: "Updated" and data age, same size */
-    #last-updated,
-    .data-age               { font-size: 0.78em; }
+    #last-updated           { font-size: 0.78em; }
     #last-updated           { padding: 3px 8px; }
 
     /* Toolbar: stack vertically */

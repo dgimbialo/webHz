@@ -149,6 +149,7 @@ async function fetchInitialData() {
                 if (rows.length < PAGE) break;
             }
             if (allNew.length > 0) {
+                updateLastUpdated();
                 const pts = allNew.map(rowToPoint);
                 flushToAllData(pts);
                 const nowCatchup = Date.now();
@@ -163,6 +164,7 @@ async function fetchInitialData() {
         } else {
             // No cache — first visit: fetch the most recent 1 000 rows
             const recent = await sbFetchRecent(1000);
+            if (recent.length > 0) updateLastUpdated();
             recent.reverse();
             const pts = recent.map(rowToPoint);
             state.allData = pts;
@@ -274,6 +276,7 @@ async function fetchNewPoints() {
     try {
         const rows = await sbFetchNew(state.lastFetched);
         if (rows.length > 0) {
+            updateLastUpdated();   // "Updated" = moment a new packet from the device arrived
             const pts = rows.map(rowToPoint);
             const nowPoll = Date.now();
             let lastValidPoll = null;
@@ -715,32 +718,38 @@ function renderDrum() {
     ctx.fillRect(0, 0, W, H);
 
     // ── Printed scale on the cylinder ─────────────────────────────────────
-    const STEP    = 0.01;
+    const STEP    = 0.0025;  // i counts 0.0025 Hz steps
+    const pxPerHz = R * DRUM.RAD_PER_HZ;   // tick spacing at the centre
+    // Finest tick that stays >= 3 px apart: 0.0025 Hz on desktop, 0.005 Hz on phones
+    const tickEvery = pxPerHz * 0.0025 >= 3 ? 1 : pxPerHz * 0.005 >= 3 ? 2 : 4;
     const spanHz  = DRUM.EDGE_ANGLE / DRUM.RAD_PER_HZ + 0.02;
     const first   = Math.ceil((freq - spanHz) / STEP);
     const last    = Math.floor((freq + spanHz) / STEP);
     const midY    = H / 2;
     // Label every 0.05 Hz where they fit (px between labels at the centre), else every 0.1 Hz
-    const labelEvery = R * DRUM.RAD_PER_HZ * 0.05 >= 46 ? 5 : 10;
+    const labelEvery = pxPerHz * 0.05 >= 46 ? 20 : 40;
 
     for (let i = first; i <= last; i++) {
+        if (i % tickEvery !== 0) continue;
         const hz    = i * STEP;
         const theta = (hz - freq) * DRUM.RAD_PER_HZ;
         if (Math.abs(theta) > DRUM.EDGE_ANGLE + 0.05) continue;
         const x     = cx + R * Math.sin(theta);
         const facing = Math.cos(theta);                 // 1 at the front, ~0.26 at the edge
-        const isMajor  = i % 10 === 0;                   // 0.1 Hz
+        const isMajor  = i % 40 === 0;                   // 0.1 Hz
         const isLabel  = i % labelEvery === 0;           // 0.05 Hz (0.1 Hz on narrow screens)
-        const isMid    = i % 5 === 0;                    // 0.05 Hz tick, labelled or not
-        const tickLen  = isMajor ? H * 0.30 : isMid ? H * 0.22 : H * 0.12;
-        const alpha    = lamp * (0.25 + 0.75 * facing) * (isLabel ? 1 : 0.7);
+        const isMid    = i % 20 === 0;                   // 0.05 Hz tick, labelled or not
+        const isHund   = i % 4 === 0;                    // 0.01 Hz
+        const isHalf   = i % 2 === 0;                    // 0.005 Hz
+        const tickLen  = isMajor ? H * 0.30 : isMid ? H * 0.22 : isHund ? H * 0.12 : isHalf ? H * 0.08 : H * 0.05;
+        const alpha    = lamp * (0.25 + 0.75 * facing) * (isLabel ? 1 : isHund ? 0.7 : isHalf ? 0.45 : 0.32);
 
         ctx.save();
         // 50.00 Hz, the nominal frequency, is green like the dashed line on the chart
-        const isNominal = i === 5000;
+        const isNominal = i === 20000;   // 50.000 Hz
         const rgb       = isNominal ? '0, 230, 80' : '0, 247, 255';
         ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
-        ctx.lineWidth   = (isMajor ? 2 : isLabel ? 1.5 : 1) * Math.max(0.45, facing);
+        ctx.lineWidth   = (isMajor ? 2 : isLabel ? 1.5 : isHund ? 1 : isHalf ? 0.8 : 0.7) * Math.max(0.45, facing);
         ctx.shadowColor = `rgba(${rgb}, ${0.9 * lamp})`;
         ctx.shadowBlur  = isLabel ? 6 * facing : 0;
         ctx.beginPath();
@@ -788,7 +797,7 @@ function renderDrum() {
     ctx.fillStyle = glass;
     ctx.fillRect(0, 0, W, H * 0.45);
 
-    // ── Fixed pointers: neon magenta triangles top and bottom, hairline ──
+    // ── Fixed pointers: neon magenta triangle outlines top and bottom, hairline ──
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 43, 214, 0.75)';
     ctx.shadowColor = 'rgba(255, 43, 214, 0.9)';
@@ -804,12 +813,11 @@ function renderDrum() {
         ctx.lineTo(cx - 4, baseY);
         ctx.lineTo(cx + 4, baseY);
         ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        ctx.stroke();               // outline only, the scale shows through
     };
-    ctx.fillStyle   = '#ff2bd6';
-    ctx.strokeStyle = 'rgba(255, 200, 245, 0.9)';
-    ctx.lineWidth   = 1;
+    ctx.strokeStyle = '#ff2bd6';
+    ctx.lineWidth   = 1.3;
+    ctx.lineJoin    = 'round';
     ctx.shadowColor = 'rgba(255, 43, 214, 1)';
     ctx.shadowBlur  = 8;
     tri(7, 0);           // top, pointing down
@@ -841,14 +849,21 @@ function updateDataAge() {
     const unitEl  = document.getElementById('val-data-age-min');
     const t       = i18n[state.lang];
 
-    if (!state.lastFetchedMs) {
+    // Age of the newest point actually drawn on the chart (points released by
+    // the drip queue), not of the newest row fetched from the database
+    let shownMs = null;
+    for (let i = state.allData.length - 1; i >= 0; i--) {
+        if (state.allData[i].y !== null) { shownMs = state.allData[i].x; break; }
+    }
+
+    if (!shownMs) {
         numEl.textContent  = '--';
         unitEl.textContent = '';
         card.classList.remove('old');
         return;
     }
 
-    const totalSecs = Math.max(0, Math.floor((Date.now() - state.lastFetchedMs) / 1000));
+    const totalSecs = Math.max(0, Math.floor((Date.now() - shownMs) / 1000));
     const hrs  = Math.floor(totalSecs / 3600);
     const mins = Math.floor((totalSecs % 3600) / 60);
     const secs = totalSecs % 60;
@@ -899,7 +914,6 @@ function updateChart({ scaleY = false } = {}) {
     applyAxisRanges();
     chart.update('none');
     updateStats();
-    updateLastUpdated();
     updateDataAge();
 }
 
@@ -1098,5 +1112,6 @@ function savedLang() {
     updateRangeButtons(state.rangeMinutes);
     await fetchInitialData();
     state.liveTimer = setInterval(fetchNewPoints, LIVE_POLL_MS);
+    setInterval(updateDataAge, 1000);   // data age ticks every second, between polls too
     requestAnimationFrame(positionAxisControls);
 })();

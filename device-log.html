@@ -181,6 +181,7 @@
         .dl-dlg {
             width: min(680px, calc(100vw - 32px));
             max-height: 86vh;
+            max-height: 86dvh;             /* mobile: excludes the browser's URL bar */
             padding: 0;
             border: 1px solid var(--border);
             border-radius: 14px;
@@ -204,7 +205,10 @@
         }
         .dl-dlg-close:hover { color: var(--accent-1); border-color: var(--accent-1); }
         .dl-dlg-body {
-            padding: 6px 18px 18px; overflow-y: auto; flex: 1; min-height: 0;
+            /* flex-basis auto (not 0%): with the dialog height only capped by
+               max-height, some mobile browsers resolved a 0% basis to 0 and the
+               body collapsed, leaving just the header visible */
+            padding: 6px 18px 18px; overflow-y: auto; flex: 1 1 auto; min-height: 0;
         }
         /* Neon scrollbar. Firefox only understands the standard properties;
            Chrome/Edge/Safari get the fully styled WebKit version below (in Chrome
@@ -258,6 +262,9 @@
             .log-header { flex-wrap: wrap; gap: 12px; }
             .log-subtitle { margin: 0; width: 100%; order: 3; }
             .dl-kv { grid-template-columns: 1fr; gap: 2px; }
+            /* Explicit height on phones: the body then always gets the space
+               left under the header, whatever the browser's flex quirks */
+            .dl-dlg { height: 86vh; height: 86dvh; }
             .dl-status-grid { grid-template-columns: 1fr 1fr; }
         }
     </style>
